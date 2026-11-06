@@ -42,6 +42,28 @@ const ArtAiDocent = {
     }
   },
 
+  // UI 모델명을 Google AI Studio 실제 지원 API 모델명으로 지능형 매핑
+  resolveActualModelName(modelName) {
+    const raw = (modelName || '').toLowerCase().trim();
+    
+    // gemini-3.8-flash 또는 gemini-2.5-flash 등 상위 라벨을 Google AI Studio 실제 Flash 모델로 매핑
+    if (raw === 'gemini-3.8-flash' || raw === 'gemini-2.5-flash') {
+      return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'];
+    }
+    if (raw === 'gemini-2.0-flash') {
+      return ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    }
+    if (raw === 'gemini-1.5-flash') {
+      return ['gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+    }
+    if (raw === 'gemini-1.5-pro') {
+      return ['gemini-1.5-pro', 'gemini-1.5-pro-latest'];
+    }
+
+    // 사용자가 직접 입력한 모델명이면 해당 모델을 1순위로, 실패 시 1.5-flash로 fallback
+    return [raw, 'gemini-1.5-flash'];
+  },
+
   // Base64 데이터에서 MIME 타입과 순수 Base64 분리
   parseBase64(dataUrl) {
     if (!dataUrl || typeof dataUrl !== 'string') {
@@ -55,66 +77,6 @@ const ArtAiDocent = {
       mimeType: matches[1],
       data: matches[2]
     };
-  },
-
-  // 사용 가능한 Gemini 모델을 API에서 동적으로 감지 (ListModels)
-  async discoverBestModel(apiKey) {
-    const userSelected = this.getSelectedModel();
-    const preferredOrder = [
-      userSelected,
-      'gemini-3.8-flash',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-8b',
-      'gemini-1.5-pro'
-    ];
-    // 중복 제거 및 유효 모델 필터
-    const uniquePreferred = [...new Set(preferredOrder.filter(Boolean))];
-
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      if (res.ok) {
-        const data = await res.json();
-        const available = (data.models || [])
-          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-          .map(m => m.name.replace(/^models\//, ''));
-
-        // 사용자가 명시적으로 지정한 모델이 API 지원 목록에 있다면 우선 반환
-        if (available.includes(userSelected)) {
-          console.log(`[ART INSIGHT] 사용자 지정 모델 일치: ${userSelected}`);
-          return userSelected;
-        }
-
-        // 선호 순서대로 매칭되는 첫 번째 모델 반환
-        for (const pref of uniquePreferred) {
-          if (available.includes(pref)) {
-            console.log(`[ART INSIGHT] 동적 감지된 최적 모델: ${pref}`);
-            return pref;
-          }
-        }
-
-        // flash 계열 모델 우선 탐색
-        const flashModel = available.find(m => m.includes('flash') && !m.includes('exp'));
-        if (flashModel) {
-          console.log(`[ART INSIGHT] 감지된 Flash 모델: ${flashModel}`);
-          return flashModel;
-        }
-
-        // 그 외 사용 가능한 gemini 모델
-        const anyGemini = available.find(m => m.includes('gemini') && !m.includes('exp'));
-        if (anyGemini) {
-          console.log(`[ART INSIGHT] 감지된 사용 가능 모델: ${anyGemini}`);
-          return anyGemini;
-        }
-      }
-    } catch (e) {
-      console.warn('ListModels 동적 감지 실패, 설정된 모델을 우선 시도합니다.', e);
-    }
-
-    return userSelected || this.DEFAULT_MODEL;
   },
 
   // 심층 도슨트 분석 프롬프트 생성
@@ -205,7 +167,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
 `;
   },
 
-  // 메인 분석 실행 함수 (gemini-3.8-flash 우선 + v1/v1beta 호환성 지원)
+  // 메인 분석 실행 함수 (gemini-3.8-flash 지능형 매핑 + v1beta 공식 멀티모달 호출)
   async analyzeArtwork({ mainImageDataUrl, labelImageDataUrl = null, authorNotes = '', labelText = '' }) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -215,7 +177,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
     const mainImg = this.parseBase64(mainImageDataUrl);
     const promptText = this.buildDocentPrompt(authorNotes, labelText);
 
-    // Google Generative AI REST 표준 형식 구성 (snake_case)
+    // Google Generative AI REST 표준 형식 (snake_case)
     const parts = [
       {
         text: promptText
@@ -255,88 +217,77 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
       }
     };
 
-    // 1단계: 설정된 모델 및 API 키에 권한이 있는 최적 모델 탐색
+    // 설정된 모델명 해석 (gemini-3.8-flash -> gemini-1.5-flash / gemini-2.0-flash 등 실제 API 모델 순회)
     const userSelected = this.getSelectedModel();
-    const discoveredModel = await this.discoverBestModel(apiKey);
+    const candidateModels = this.resolveActualModelName(userSelected);
     
-    // 지원 종료된 gemini-2.0-flash-exp는 완전히 배제하고, gemini-3.8-flash 우선 적용
-    const candidatesToTry = [
-      userSelected,
-      discoveredModel,
-      'gemini-3.8-flash',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-8b'
-    ].filter(m => m && !m.includes('exp'));
+    // 만료된 exp 모델 원천 배제
+    const filteredModels = candidateModels.filter(m => m && !m.includes('exp'));
+    const uniqueModels = [...new Set(filteredModels)];
 
-    // 중복 제거
-    const uniqueModels = [...new Set(candidatesToTry)];
-
-    let lastErrorMessage = '';
+    let primaryErrorMessage = '';
 
     for (const model of uniqueModels) {
-      // v1 및 v1beta 둘 다 호환 시도
-      const endpoints = [
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
-      ];
+      // 공식 v1beta 엔드포인트 호출 (v1beta가 responseMimeType 및 멀티모달 공식 규격 지원)
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`[ART INSIGHT] Gemini 모델 호출 시도: ${model} (${endpoint.includes('v1beta') ? 'v1beta' : 'v1'})`);
+      try {
+        console.log(`[ART INSIGHT] Gemini 모델 호출: ${model}`);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.error?.message || `HTTP ${response.status}`;
           
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            const errMsg = errData.error?.message || `HTTP ${response.status}`;
-            
-            if (response.status === 400 && errMsg.includes('API_KEY_INVALID')) {
-              throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 올바르지 않습니다. Google AI Studio에서 키를 다시 확인해주세요.');
-            }
-            if (response.status === 429) {
-              throw new Error('RATE_LIMIT: API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
-            }
-
-            lastErrorMessage = errMsg;
-            continue; // 다음 엔드포인트/모델 시도
+          if (response.status === 400 && errMsg.includes('API_KEY_INVALID')) {
+            throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 올바르지 않습니다. Google AI Studio에서 키를 다시 확인해주세요.');
+          }
+          if (response.status === 429) {
+            throw new Error('RATE_LIMIT: API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
           }
 
-          const resultJson = await response.json();
-          const candidate = resultJson.candidates?.[0];
-          if (!candidate || !candidate.content?.parts?.[0]?.text) {
-            continue;
+          if (!primaryErrorMessage) {
+            primaryErrorMessage = errMsg;
           }
+          console.warn(`[ART INSIGHT] 모델 [${model}] 응답 실패: ${errMsg}, 다음 모델로 전환합니다.`);
+          continue;
+        }
 
-          const rawText = candidate.content.parts[0].text.trim();
-          let cleaned = rawText;
-          if (cleaned.startsWith('```json')) {
-            cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-          } else if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
-          }
+        const resultJson = await response.json();
+        const candidate = resultJson.candidates?.[0];
+        if (!candidate || !candidate.content?.parts?.[0]?.text) {
+          throw new Error('AI 모델로부터 유효한 텍스트 응답을 수신하지 못했습니다.');
+        }
 
-          console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석 리포트를 수신했습니다.`);
-          return JSON.parse(cleaned);
+        const rawText = candidate.content.parts[0].text.trim();
+        let cleaned = rawText;
+        if (cleaned.startsWith('```json')) {
+          cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleaned.startsWith('```')) {
+          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
 
-        } catch (fetchErr) {
-          if (fetchErr.message.startsWith('API_KEY_INVALID') || fetchErr.message.startsWith('RATE_LIMIT')) {
-            throw fetchErr;
-          }
-          lastErrorMessage = fetchErr.message;
+        console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석 리포트를 수신했습니다!`);
+        return JSON.parse(cleaned);
+
+      } catch (fetchErr) {
+        if (fetchErr.message.startsWith('API_KEY_INVALID') || fetchErr.message.startsWith('RATE_LIMIT')) {
+          throw fetchErr;
+        }
+        if (!primaryErrorMessage) {
+          primaryErrorMessage = fetchErr.message;
         }
       }
     }
 
-    throw new Error(`AI 모델 응답 오류: ${lastErrorMessage || '호환 가능한 Flash 모델을 찾을 수 없습니다.'}`);
+    throw new Error(`AI 모델 응답 오류: ${primaryErrorMessage || '호환 가능한 Flash 모델을 찾을 수 없습니다.'}`);
   },
 
   // [체험용 샘플 도슨트 데이터]
