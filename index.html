@@ -151,41 +151,77 @@
         <!-- Form: Image Upload & Supplemental Materials -->
         <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm max-w-3xl mx-auto space-y-6 sm:space-y-8">
           
-          <!-- 1. Main Artwork Photo (모바일 네이티브 터치 완벽 호환 Label 구조) -->
+          <!-- 1. Main Artwork Photo (스마트폰 직접 촬영 vs 갤러리 선택) -->
           <div>
-            <label class="block font-serifKr text-sm font-semibold text-[#1B1A17] mb-2">
-              작품 사진 <span class="text-[#5C1D24]">*</span>
-              <span class="text-xs font-normal text-[#8F887D] ml-2">(촬영하거나 사진을 업로드하세요)</span>
-            </label>
+            <div class="flex items-center justify-between mb-2">
+              <label class="font-serifKr text-sm font-semibold text-[#1B1A17]">
+                작품 사진 <span class="text-[#5C1D24]">*</span>
+              </label>
+              <span class="text-[11px] text-[#8F887D]">
+                (고해상도 자동 최적화로 데이터 절약)
+              </span>
+            </div>
             
-            <!-- Hidden Native File Input (sr-only로 접근성 유지하면서 네이티브 터치 보장) -->
-            <input type="file" id="analysis-main-image-input" accept="image/*" class="sr-only" />
+            <!-- 카메라 직접 촬영 전용 Input (capture="environment") -->
+            <input type="file" id="analysis-camera-input" accept="image/*" capture="environment" class="sr-only" />
 
-            <!-- Dropzone Label (label for로 감싸 모바일 터치 시 파일창/카메라 100% 오픈) -->
-            <label 
-              for="analysis-main-image-input"
-              id="analysis-dropzone" 
-              class="block border-2 border-dashed border-[#D5CFC3] hover:border-[#5C1D24] active:bg-[#F2ECE1] bg-[#FAF9F6] p-8 sm:p-12 text-center cursor-pointer transition-all duration-200">
-              <div class="w-14 h-14 mx-auto mb-3 bg-[#F2ECE1] border border-[#E4DECFA] flex items-center justify-center text-[#5C1D24] pointer-events-none">
-                <i data-lucide="camera" class="w-7 h-7"></i>
+            <!-- 갤러리/파일 보관함 전용 Input -->
+            <input type="file" id="analysis-gallery-input" accept="image/*" class="sr-only" />
+
+            <!-- 선택 전 드롭존 & 버튼 카드 -->
+            <div id="analysis-dropzone-wrapper" class="space-y-3">
+              <div 
+                id="analysis-dropzone" 
+                class="border-2 border-dashed border-[#D5CFC3] hover:border-[#5C1D24] bg-[#FAF9F6] p-6 sm:p-10 text-center transition-all duration-200">
+                <div class="w-12 h-12 mx-auto mb-2 bg-[#F2ECE1] border border-[#E4DECFA] flex items-center justify-center text-[#5C1D24]">
+                  <i data-lucide="image" class="w-6 h-6"></i>
+                </div>
+                <p class="text-xs sm:text-sm text-[#2E2C28] font-medium mb-1">
+                  전시장에서 작품을 직접 촬영하거나 저장된 사진을 선택하세요
+                </p>
+                <p class="text-[11px] text-[#8F887D] mb-4">
+                  * 15MB 이상의 고화질 사진도 200~300KB로 자동 압축되어 통신 데이터가 절약됩니다.
+                </p>
+
+                <!-- 2가지 옵션 버튼 (직접 촬영 vs 앨범 선택) -->
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+                  <label 
+                    for="analysis-camera-input" 
+                    class="w-full sm:w-1/2 flex items-center justify-center gap-2 bg-[#5C1D24] hover:bg-[#75252E] active:scale-98 text-white px-4 py-3 text-xs font-medium uppercase tracking-wider shadow-sm cursor-pointer transition-all">
+                    <i data-lucide="camera" class="w-4 h-4 pointer-events-none"></i>
+                    <span class="pointer-events-none">📷 카메라로 직접 촬영</span>
+                  </label>
+                  
+                  <label 
+                    for="analysis-gallery-input" 
+                    class="w-full sm:w-1/2 flex items-center justify-center gap-2 bg-white hover:bg-[#F6F2EB] active:scale-98 text-[#333] border border-[#D5CFC3] px-4 py-3 text-xs font-medium uppercase tracking-wider shadow-sm cursor-pointer transition-all">
+                    <i data-lucide="folder-image" class="w-4 h-4 text-[#722F37] pointer-events-none"></i>
+                    <span class="pointer-events-none">🖼️ 앨범에서 선택</span>
+                  </label>
+                </div>
               </div>
-              <p class="text-sm text-[#2E2C28] font-medium mb-1 pointer-events-none">
-                작품 사진을 탭하여 촬영하거나 선택하세요
-              </p>
-              <p class="text-xs text-[#8F887D] pointer-events-none">
-                스마트폰 촬영 / 갤러리 이미지 (자동 고해상도 최적화)
-              </p>
-            </label>
+            </div>
 
-            <!-- Main Image Preview -->
-            <div id="analysis-main-preview-box" class="hidden relative border border-[#E2DDD3] bg-[#F2ECE1] p-3">
+            <!-- Main Image Preview & Compression Status -->
+            <div id="analysis-main-preview-box" class="hidden relative border border-[#E2DDD3] bg-[#F2ECE1] p-3 space-y-2">
               <div class="max-h-[460px] overflow-hidden flex items-center justify-center">
                 <img id="analysis-main-preview-img" src="" alt="작품 미리보기" class="max-h-[460px] max-w-full object-contain mx-auto shadow-md" />
               </div>
+
+              <!-- 데이터 절약 안내 배지 -->
+              <div id="analysis-compression-badge" class="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 px-3 py-2">
+                <div class="flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-700"></i>
+                  <span id="compression-info-text">사진 최적화 완료</span>
+                </div>
+                <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5">데이터 절약 적용됨</span>
+              </div>
+
               <button 
                 type="button" 
                 id="btn-remove-main-img" 
-                class="absolute top-5 right-5 bg-black/75 hover:bg-black text-white p-2 text-xs shadow-md transition-colors cursor-pointer">
+                class="absolute top-4 right-4 bg-black/75 hover:bg-black text-white p-2 text-xs shadow-md transition-colors cursor-pointer"
+                title="사진 다시 등록">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>

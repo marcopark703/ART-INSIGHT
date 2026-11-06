@@ -54,10 +54,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 분석 입력 영역
     analysisInputContainer: document.getElementById('analysis-input-container'),
-    analysisMainImageInput: document.getElementById('analysis-main-image-input'),
+    analysisCameraInput: document.getElementById('analysis-camera-input'),
+    analysisGalleryInput: document.getElementById('analysis-gallery-input'),
+    analysisDropzoneWrapper: document.getElementById('analysis-dropzone-wrapper'),
     analysisDropzone: document.getElementById('analysis-dropzone'),
     analysisMainPreviewBox: document.getElementById('analysis-main-preview-box'),
     analysisMainPreviewImg: document.getElementById('analysis-main-preview-img'),
+    compressionInfoText: document.getElementById('compression-info-text'),
+    analysisCompressionBadge: document.getElementById('analysis-compression-badge'),
     btnRemoveMainImg: document.getElementById('btn-remove-main-img'),
     analysisAuthorNotes: document.getElementById('analysis-author-notes'),
     analysisLabelImageInput: document.getElementById('analysis-label-image-input'),
@@ -170,12 +174,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
   }
 
-  // 4. 모바일/PC 이미지 압축 및 안전 변환
-  function optimizeImage(file, maxDimension = 1600, quality = 0.85) {
+  // 4. 모바일/PC 고해상도 이미지 압축 및 데이터 낭비 방지 최적화
+  function optimizeImage(file, maxDimension = 1280, quality = 0.82) {
     return new Promise((resolve, reject) => {
       if (!file || !file.type.startsWith('image/')) {
         return reject(new Error('이미지 파일(JPG, PNG 등)만 등록할 수 있습니다.'));
       }
+
+      const originalSize = file.size; // 바이트 단위 원본 크기
 
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('이미지 파일을 읽는 중 오류가 발생했습니다.'));
@@ -188,6 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let width = img.width;
             let height = img.height;
 
+            // 스마트폰 고화질 촬영 사진(4000px 이상)을 미술 도슨트 정밀 분석에 최적화된 1280px로 리사이징
             if (width > height) {
               if (width > maxDimension) {
                 height = Math.round((height * maxDimension) / width);
@@ -205,16 +212,56 @@ document.addEventListener('DOMContentLoaded', async () => {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            // Base64 대략적 크기 계산 (헤더 제외 0.75 배)
+            const base64Length = compressedDataUrl.length - (compressedDataUrl.indexOf(',') + 1);
+            const compressedSize = Math.round((base64Length * 3) / 4);
+            const savedPercent = originalSize > 0 
+              ? Math.max(0, Math.round(((originalSize - compressedSize) / originalSize) * 100))
+              : 0;
+
+            resolve({
+              dataUrl: compressedDataUrl,
+              originalSize,
+              compressedSize,
+              savedPercent
+            });
           } catch (canvasErr) {
             // 캔버스 실패 시 원본 DataURL로 Fallback
-            resolve(e.target.result);
+            resolve({
+              dataUrl: e.target.result,
+              originalSize,
+              compressedSize: originalSize,
+              savedPercent: 0
+            });
           }
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  // 메인 사진 등록 공통 핸들러 (카메라 촬영 / 갤러리 선택 / 드래그앤드롭 공용)
+  async function handleMainArtworkFile(file) {
+    if (!file) return;
+    try {
+      const res = await optimizeImage(file);
+      state.mainImageDataUrl = res.dataUrl;
+      elements.analysisMainPreviewImg.src = res.dataUrl;
+
+      // 데이터 절약 정보 표기
+      const origMB = (res.originalSize / (1024 * 1024)).toFixed(1);
+      const compKB = Math.round(res.compressedSize / 1024);
+      elements.compressionInfoText.textContent = `원본 ${origMB}MB → ${compKB}KB (${res.savedPercent}% 데이터 절약 적용)`;
+
+      elements.analysisDropzoneWrapper.classList.add('hidden');
+      elements.analysisMainPreviewBox.classList.remove('hidden');
+      lucide.createIcons();
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   // 5. 별점 UI 헬퍼
@@ -669,18 +716,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.modalErrorHelp.classList.add('hidden');
     });
 
-    // 메인 이미지 업로드 이벤트 (네이티브 change 이벤트)
-    elements.analysisMainImageInput.addEventListener('change', async (e) => {
+    // 카메라 직접 촬영 이벤트
+    elements.analysisCameraInput.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
-        try {
-          const optimized = await optimizeImage(e.target.files[0]);
-          state.mainImageDataUrl = optimized;
-          elements.analysisMainPreviewImg.src = optimized;
-          elements.analysisDropzone.classList.add('hidden');
-          elements.analysisMainPreviewBox.classList.remove('hidden');
-        } catch (err) {
-          alert(err.message);
-        }
+        await handleMainArtworkFile(e.target.files[0]);
+      }
+    });
+
+    // 갤러리/파일 보관함 선택 이벤트
+    elements.analysisGalleryInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        await handleMainArtworkFile(e.target.files[0]);
       }
     });
 
@@ -696,25 +742,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       elements.analysisDropzone.classList.remove('border-[#5C1D24]', 'bg-[#F2ECE5]');
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        try {
-          const optimized = await optimizeImage(e.dataTransfer.files[0]);
-          state.mainImageDataUrl = optimized;
-          elements.analysisMainPreviewImg.src = optimized;
-          elements.analysisDropzone.classList.add('hidden');
-          elements.analysisMainPreviewBox.classList.remove('hidden');
-        } catch (err) {
-          alert(err.message);
-        }
+        await handleMainArtworkFile(e.dataTransfer.files[0]);
       }
     });
 
     elements.btnRemoveMainImg.addEventListener('click', (e) => {
       e.stopPropagation();
       state.mainImageDataUrl = null;
-      elements.analysisMainImageInput.value = '';
+      elements.analysisCameraInput.value = '';
+      elements.analysisGalleryInput.value = '';
       elements.analysisMainPreviewImg.src = '';
       elements.analysisMainPreviewBox.classList.add('hidden');
-      elements.analysisDropzone.classList.remove('hidden');
+      elements.analysisDropzoneWrapper.classList.remove('hidden');
     });
 
     // 라벨 이미지 첨부 이벤트
@@ -747,12 +786,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.mainImageDataUrl = null;
         state.labelImageDataUrl = null;
         state.currentAnalysisResult = null;
-        elements.analysisMainImageInput.value = '';
+        if (elements.analysisCameraInput) elements.analysisCameraInput.value = '';
+        if (elements.analysisGalleryInput) elements.analysisGalleryInput.value = '';
         elements.analysisLabelImageInput.value = '';
         elements.analysisAuthorNotes.value = '';
         elements.analysisMainPreviewImg.src = '';
         elements.analysisMainPreviewBox.classList.add('hidden');
-        elements.analysisDropzone.classList.remove('hidden');
+        elements.analysisDropzoneWrapper.classList.remove('hidden');
         elements.analysisResultView.classList.add('hidden');
         elements.analysisInputContainer.classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });

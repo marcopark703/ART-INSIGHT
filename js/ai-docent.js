@@ -5,8 +5,6 @@
 
 const ArtAiDocent = {
   STORAGE_KEY: 'art_insight_gemini_api_key',
-  DEFAULT_MODEL: 'gemini-1.5-flash',
-  FALLBACK_MODELS: ['gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-pro'],
 
   // API Key 가져오기
   getApiKey() {
@@ -41,6 +39,51 @@ const ArtAiDocent = {
       mimeType: matches[1],
       data: matches[2]
     };
+  },
+
+  // 사용 가능한 Gemini 모델을 API에서 동적으로 감지 (ListModels)
+  async discoverBestModel(apiKey) {
+    const preferredOrder = [
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-002',
+      'gemini-1.5-flash-8b',
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-pro',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-pro-002'
+    ];
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (res.ok) {
+        const data = await res.json();
+        const available = (data.models || [])
+          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+          .map(m => m.name.replace(/^models\//, ''));
+
+        // 선호 순서대로 매칭되는 첫 번째 모델 반환
+        for (const pref of preferredOrder) {
+          if (available.includes(pref)) {
+            console.log(`[ART INSIGHT] 동적 감지된 최적 모델: ${pref}`);
+            return pref;
+          }
+        }
+
+        // 선호 목록에 없더라도 gemini가 들어간 사용 가능 모델 선택
+        const anyGemini = available.find(m => m.includes('gemini'));
+        if (anyGemini) {
+          console.log(`[ART INSIGHT] 감지된 사용 가능 모델: ${anyGemini}`);
+          return anyGemini;
+        }
+      }
+    } catch (e) {
+      console.warn('ListModels 동적 감지 실패, 기본 폴백 모델을 시도합니다.', e);
+    }
+
+    // fallback 기본값
+    return 'gemini-2.0-flash';
   },
 
   // 심층 도슨트 분석 프롬프트 생성
@@ -131,18 +174,17 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
 `;
   },
 
-  // 메인 분석 실행 함수 (단일 모델 시도 + Fallback 지원)
+  // 메인 분석 실행 함수 (동적 모델 감지 + 다중 Fallback 체인)
   async analyzeArtwork({ mainImageDataUrl, labelImageDataUrl = null, authorNotes = '', labelText = '' }) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      throw new Error('API_KEY_REQUIRED: Gemini API 키가 설정되지 않았습니다. [AI 모델 설정]에서 API 키를 등록해주세요.');
+      throw new Error('API_KEY_REQUIRED: Gemini API 키가 설정되지 않았습니다.');
     }
 
     const mainImg = this.parseBase64(mainImageDataUrl);
     const promptText = this.buildDocentPrompt(authorNotes, labelText);
 
-    // Google Generative AI REST 표준 형식 구성
-    // REST API에서는 inline_data 와 mime_type (snake_case)가 규격입니다.
+    // Google Generative AI REST 표준 형식 구성 (snake_case)
     const parts = [
       {
         text: promptText
@@ -182,69 +224,83 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
       }
     };
 
-    const modelsToTry = [this.DEFAULT_MODEL, ...this.FALLBACK_MODELS];
-    let lastError = null;
+    // 1단계: API 키에 권한이 있는 최적 모델 동적 탐색
+    const discoveredModel = await this.discoverBestModel(apiKey);
+    const candidatesToTry = [
+      discoveredModel,
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+      'gemini-2.0-flash-exp'
+    ];
+    // 중복 제거
+    const uniqueModels = [...new Set(candidatesToTry)];
 
-    for (const model of modelsToTry) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    let lastErrorMessage = '';
 
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        });
+    for (const model of uniqueModels) {
+      // v1beta 및 v1 둘 다 호환 시도
+      const urlsToTry = [
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
+      ];
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          const errMessage = errData.error?.message || `HTTP ${response.status}`;
-          
-          if (response.status === 400 && errMessage.includes('API_KEY_INVALID')) {
-            throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 유효하지 않습니다. Google AI Studio에서 키를 다시 확인해주세요.');
+      for (const endpoint of urlsToTry) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `HTTP ${response.status}`;
+            
+            if (response.status === 400 && errMsg.includes('API_KEY_INVALID')) {
+              throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 올바르지 않습니다. Google AI Studio에서 키를 다시 확인해주세요.');
+            }
+            if (response.status === 429) {
+              throw new Error('RATE_LIMIT: API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+            }
+
+            lastErrorMessage = errMsg;
+            continue; // 다음 URL/모델 시도
           }
-          if (response.status === 429) {
-            throw new Error('RATE_LIMIT: API 호출 할당량을 초과했습니다. 잠시 후 다시 시도해주세요.');
+
+          const resultJson = await response.json();
+          const candidate = resultJson.candidates?.[0];
+          if (!candidate || !candidate.content?.parts?.[0]?.text) {
+            continue;
           }
 
-          lastError = new Error(`모델 [${model}] 응답 오류: ${errMessage}`);
-          // 다음 fallback 모델 시도
-          continue;
-        }
+          const rawText = candidate.content.parts[0].text.trim();
+          let cleaned = rawText;
+          if (cleaned.startsWith('```json')) {
+            cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+          } else if (cleaned.startsWith('```')) {
+            cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+          }
 
-        const resultJson = await response.json();
-        const candidate = resultJson.candidates?.[0];
-        if (!candidate || !candidate.content?.parts?.[0]?.text) {
-          lastError = new Error(`모델 [${model}]로부터 텍스트 응답을 받지 못했습니다.`);
-          continue;
-        }
+          console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석을 수신했습니다.`);
+          return JSON.parse(cleaned);
 
-        const rawText = candidate.content.parts[0].text.trim();
-        
-        // JSON 파싱 (코드 블록 방어 처리)
-        let cleaned = rawText;
-        if (cleaned.startsWith('```json')) {
-          cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleaned.startsWith('```')) {
-          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        } catch (fetchErr) {
+          if (fetchErr.message.startsWith('API_KEY_INVALID') || fetchErr.message.startsWith('RATE_LIMIT')) {
+            throw fetchErr;
+          }
+          lastErrorMessage = fetchErr.message;
         }
-
-        return JSON.parse(cleaned);
-
-      } catch (err) {
-        if (err.message.startsWith('API_KEY_INVALID') || err.message.startsWith('RATE_LIMIT')) {
-          throw err;
-        }
-        lastError = err;
-        console.warn(`모델 ${model} 호출 실패, 다음 모델 시도...`, err);
       }
     }
 
-    throw lastError || new Error('모든 AI 모델 연결에 실패했습니다. 네트워크 상태 및 API 키를 점검해주세요.');
+    throw new Error(`AI 모델 응답 오류: ${lastErrorMessage || '연결 가능한 모델을 찾을 수 없습니다.'}`);
   },
 
-  // [체험용 샘플 도슨트 데이터] — API 키가 없거나 네트워크 오류 시 사용자가 품질을 직접 검토할 수 있도록 제공
+  // [체험용 샘플 도슨트 데이터]
   generateSampleDocentReport(artworkTitle = '빛과 침묵의 공간', artistName = '에디토리얼 마스터') {
     return {
       suggestedTitle: artworkTitle || '빛과 침묵의 공간 (Space of Light & Silence)',
