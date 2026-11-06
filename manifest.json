@@ -1,0 +1,16 @@
+{
+  "name": "ART INSIGHT — 개인 미술 아카이브",
+  "short_name": "ART INSIGHT",
+  "description": "그림 너머의 이야기를 읽다 — 나만의 에디토리얼 미술 아카이브",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#5C1D24",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
