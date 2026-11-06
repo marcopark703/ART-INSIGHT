@@ -7,8 +7,23 @@
   
   <meta name="theme-color" content="#FAF9F6" />
   <meta name="description" content="AI 개인 맞춤형 도슨트 및 미술 분석 서비스 — ART INSIGHT" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="manifest" href="manifest.json" />
+
+  <!-- 강제 캐시 초기화 (베타테스트 최신 코드 보장) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let reg of regs) { reg.unregister(); }
+      });
+      if ('caches' in window) {
+        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+      }
+    }
+  </script>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -55,8 +70,8 @@
   <!-- html2pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Custom CSS (Cache Busting) -->
+  <link rel="stylesheet" href="css/style.css?v=3.8.2" />
 </head>
 <body class="bg-[#FAF9F6] text-[#1B1A17] flex flex-col min-h-screen safe-bottom-padding select-none sm:select-auto">
 
@@ -64,11 +79,14 @@
   <header class="sticky top-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-b border-[#E8E3D7] transition-all duration-300">
     <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
       
-      <!-- Brand Logo -->
+      <!-- Brand Logo & Version Badge -->
       <div class="flex items-center gap-2 cursor-pointer shrink-0" onclick="window.scrollTo({top:0, behavior:'smooth'})">
-        <div>
+        <div class="flex items-center">
           <span class="font-serifTitle text-lg sm:text-2xl font-bold tracking-[0.2em] text-[#5C1D24]">
             ART INSIGHT
+          </span>
+          <span class="text-[9px] bg-[#5C1D24] text-white px-1.5 py-0.5 ml-2 font-mono font-bold tracking-wider rounded-sm shadow-xs">
+            v3.8.2
           </span>
           <span class="hidden lg:inline-block text-[11px] font-serifEn tracking-[0.14em] text-[#8F887D] uppercase ml-3 border-l border-[#D8D2C4] pl-3">
             See beyond the canvas
@@ -820,10 +838,10 @@
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="js/ai-docent.js"></script>
-  <script src="js/db.js"></script>
-  <script src="js/pdf.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Scripts (Cache Busting v3.8.2) -->
+  <script src="js/ai-docent.js?v=3.8.2"></script>
+  <script src="js/db.js?v=3.8.2"></script>
+  <script src="js/pdf.js?v=3.8.2"></script>
+  <script src="js/app.js?v=3.8.2"></script>
 </body>
 </html>
