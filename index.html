@@ -58,19 +58,19 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="bg-[#FAF9F6] text-[#1B1A17] flex flex-col min-h-screen safe-bottom-padding">
+<body class="bg-[#FAF9F6] text-[#1B1A17] flex flex-col min-h-screen safe-bottom-padding select-none sm:select-auto">
 
   <!-- ================= TOP NAVIGATION ================= -->
   <header class="sticky top-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-b border-[#E8E3D7] transition-all duration-300">
-    <div class="max-w-6xl mx-auto px-4 sm:px-8 h-18 sm:h-20 flex items-center justify-between">
+    <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
       
       <!-- Brand Logo -->
-      <div class="flex items-center gap-3 cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+      <div class="flex items-center gap-2 cursor-pointer shrink-0" onclick="window.scrollTo({top:0, behavior:'smooth'})">
         <div>
-          <span class="font-serifTitle text-xl sm:text-2xl font-bold tracking-[0.22em] text-[#5C1D24]">
+          <span class="font-serifTitle text-lg sm:text-2xl font-bold tracking-[0.2em] text-[#5C1D24]">
             ART INSIGHT
           </span>
-          <span class="hidden sm:inline-block text-[11px] font-serifEn tracking-[0.14em] text-[#8F887D] uppercase ml-3 border-l border-[#D8D2C4] pl-3">
+          <span class="hidden lg:inline-block text-[11px] font-serifEn tracking-[0.14em] text-[#8F887D] uppercase ml-3 border-l border-[#D8D2C4] pl-3">
             See beyond the canvas
           </span>
         </div>
@@ -87,12 +87,13 @@
       </nav>
 
       <!-- Settings & Status Action -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button 
           id="btn-open-api-key" 
-          class="inline-flex items-center gap-2 border border-[#D5CFC3] hover:border-[#5C1D24] bg-white px-3.5 py-2 text-xs text-[#4A443D] transition-colors shadow-sm">
+          type="button"
+          class="inline-flex items-center gap-2 border border-[#D5CFC3] hover:border-[#5C1D24] active:bg-[#F2ECE1] bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs text-[#4A443D] transition-colors shadow-sm cursor-pointer">
           <span id="api-status-dot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-          <span id="api-status-label" class="text-[11px] font-medium">AI 모델 설정</span>
+          <span id="api-status-label" class="text-[11px] font-medium hidden sm:inline">AI 모델 설정</span>
           <i data-lucide="key" class="w-3.5 h-3.5 text-[#8F887D]"></i>
         </button>
       </div>
@@ -106,69 +107,75 @@
     <!-- ======================================================== -->
     <!-- VIEW 1: AI ART ANALYSIS (핵심 메인 분석 화면)                -->
     <!-- ======================================================== -->
-    <section id="view-analysis" class="fade-in space-y-10">
+    <section id="view-analysis" class="fade-in space-y-8 sm:space-y-10">
       
-      <!-- API Key Unconfigured Warning Banner (If not set) -->
+      <!-- API Key Warning Banner (키 미설정 시 노출) -->
       <div id="banner-api-key-warning" class="hidden bg-[#FFF9F2] border border-[#E8D4BE] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         <div class="flex items-start gap-3">
           <i data-lucide="alert-circle" class="w-5 h-5 text-amber-700 shrink-0 mt-0.5"></i>
           <div>
             <h4 class="text-xs sm:text-sm font-semibold text-amber-900">
-              실제 멀티모달 AI 분석을 위해 Gemini API 키가 필요합니다
+              실제 멀티모달 AI 분석을 위해 Gemini API 키를 등록해주세요
             </h4>
             <p class="text-xs text-amber-800/90 mt-0.5 leading-relaxed">
-              Google AI Studio에서 무료로 발급받은 Gemini API 키를 등록하면, 실제 그림과 작가 노트를 심층 도슨트 분석할 수 있습니다. (가짜/데모 분석 절대 금지 원칙)
+              Google AI Studio에서 무료로 발급받은 Gemini API 키를 등록하면, 실제 그림과 작가 노트를 심층 도슨트 분석할 수 있습니다.
             </p>
           </div>
         </div>
-        <button 
-          onclick="document.getElementById('btn-open-api-key').click()" 
-          class="shrink-0 bg-[#5C1D24] hover:bg-[#75252E] text-white text-xs px-4 py-2 font-medium tracking-wider uppercase transition-colors">
-          API 키 등록하기
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button 
+            id="btn-banner-open-api-key"
+            type="button"
+            class="bg-[#5C1D24] hover:bg-[#75252E] text-white text-xs px-4 py-2 font-medium tracking-wider uppercase transition-colors cursor-pointer">
+            API 키 등록하기
+          </button>
+        </div>
       </div>
 
       <!-- 1-A. UPLOAD & INPUT CONTAINER -->
       <div id="analysis-input-container" class="space-y-8">
         
         <!-- Header -->
-        <div class="text-center max-w-2xl mx-auto space-y-3">
-          <div class="text-[11px] font-serifEn tracking-[0.25em] uppercase text-[#722F37] font-semibold">
+        <div class="text-center max-w-2xl mx-auto space-y-2 sm:space-y-3">
+          <div class="text-[10px] sm:text-[11px] font-serifEn tracking-[0.25em] uppercase text-[#722F37] font-semibold">
             AI Multimodal Docent Engine
           </div>
           <h1 class="font-serifKr text-2xl sm:text-4xl font-bold tracking-tight text-[#1B1A17] leading-snug">
             그림 한 장 너머의<br class="hidden sm:inline" /> 이야기를 시각적으로 분석합니다
           </h1>
-          <p class="font-serifKr text-xs sm:text-sm text-[#5C574F] font-light leading-relaxed">
+          <p class="font-serifKr text-xs sm:text-sm text-[#5C574F] font-light leading-relaxed px-2">
             작품 사진을 올리면 AI 도슨트가 미술사적 맥락, 화풍과 조형적 특징, 유사 작가, 그리고 작품의 다각적 해석을 전문 미술 평론의 문체로 전달합니다.
           </p>
         </div>
 
         <!-- Form: Image Upload & Supplemental Materials -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm max-w-3xl mx-auto space-y-8">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm max-w-3xl mx-auto space-y-6 sm:space-y-8">
           
-          <!-- 1. Main Artwork Photo -->
+          <!-- 1. Main Artwork Photo (모바일 네이티브 터치 완벽 호환 Label 구조) -->
           <div>
             <label class="block font-serifKr text-sm font-semibold text-[#1B1A17] mb-2">
               작품 사진 <span class="text-[#5C1D24]">*</span>
               <span class="text-xs font-normal text-[#8F887D] ml-2">(촬영하거나 사진을 업로드하세요)</span>
             </label>
-            <input type="file" id="analysis-main-image-input" accept="image/*" class="hidden" />
+            
+            <!-- Hidden Native File Input (sr-only로 접근성 유지하면서 네이티브 터치 보장) -->
+            <input type="file" id="analysis-main-image-input" accept="image/*" class="sr-only" />
 
-            <!-- Dropzone -->
-            <div 
+            <!-- Dropzone Label (label for로 감싸 모바일 터치 시 파일창/카메라 100% 오픈) -->
+            <label 
+              for="analysis-main-image-input"
               id="analysis-dropzone" 
-              class="border-2 border-dashed border-[#D5CFC3] hover:border-[#5C1D24] bg-[#FAF9F6] p-8 sm:p-12 text-center cursor-pointer transition-all duration-200">
-              <div class="w-14 h-14 mx-auto mb-3 bg-[#F2ECE1] border border-[#E4DECFA] flex items-center justify-center text-[#5C1D24]">
+              class="block border-2 border-dashed border-[#D5CFC3] hover:border-[#5C1D24] active:bg-[#F2ECE1] bg-[#FAF9F6] p-8 sm:p-12 text-center cursor-pointer transition-all duration-200">
+              <div class="w-14 h-14 mx-auto mb-3 bg-[#F2ECE1] border border-[#E4DECFA] flex items-center justify-center text-[#5C1D24] pointer-events-none">
                 <i data-lucide="camera" class="w-7 h-7"></i>
               </div>
-              <p class="text-sm text-[#2E2C28] font-medium mb-1">
-                작품 사진을 선택하거나 이곳으로 드래그하세요
+              <p class="text-sm text-[#2E2C28] font-medium mb-1 pointer-events-none">
+                작품 사진을 탭하여 촬영하거나 선택하세요
               </p>
-              <p class="text-xs text-[#8F887D]">
-                스마트폰 촬영 / 갤러리 이미지 (고해상도 자동 최적화)
+              <p class="text-xs text-[#8F887D] pointer-events-none">
+                스마트폰 촬영 / 갤러리 이미지 (자동 고해상도 최적화)
               </p>
-            </div>
+            </label>
 
             <!-- Main Image Preview -->
             <div id="analysis-main-preview-box" class="hidden relative border border-[#E2DDD3] bg-[#F2ECE1] p-3">
@@ -178,24 +185,22 @@
               <button 
                 type="button" 
                 id="btn-remove-main-img" 
-                class="absolute top-5 right-5 bg-black/75 hover:bg-black text-white p-2 text-xs shadow-md transition-colors">
+                class="absolute top-5 right-5 bg-black/75 hover:bg-black text-white p-2 text-xs shadow-md transition-colors cursor-pointer">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
           </div>
 
-          <!-- 2. Supplemental Materials (Accordion: 작가 노트 / 전시 라벨) -->
-          <div class="border-t border-[#EAE5DA] pt-6">
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <span class="font-serifKr text-sm font-semibold text-[#1B1A17]">추가 자료 첨부 (선택)</span>
-                <span class="block text-xs text-[#8F887D] mt-0.5">
-                  전시 라벨이나 작가 노트를 함께 첨부하면, **[작가의 의도 vs AI의 독자적 시각 해석 비교]**가 활성화됩니다.
-                </span>
-              </div>
+          <!-- 2. Supplemental Materials (작가 노트 / 전시 라벨) -->
+          <div class="border-t border-[#EAE5DA] pt-5">
+            <div class="mb-3">
+              <span class="font-serifKr text-sm font-semibold text-[#1B1A17]">추가 자료 첨부 (선택)</span>
+              <span class="block text-xs text-[#8F887D] mt-0.5">
+                전시 라벨이나 작가 노트를 함께 첨부하면, **[작가의 의도 vs AI의 독자적 시각 해석 비교]**가 활성화됩니다.
+              </span>
             </div>
 
-            <div class="space-y-4 bg-[#FAF9F6] border border-[#E8E3D7] p-5">
+            <div class="space-y-4 bg-[#FAF9F6] border border-[#E8E3D7] p-4 sm:p-5">
               
               <!-- Author Note / Text input -->
               <div>
@@ -209,22 +214,22 @@
                   class="w-full bg-white border border-[#D5CFC3] p-3 text-xs text-[#1B1A17] focus:outline-none focus:border-[#5C1D24] resize-none leading-relaxed"></textarea>
               </div>
 
-              <!-- Label Image upload -->
+              <!-- Label Image upload (Label for 구조) -->
               <div>
                 <label class="block text-xs font-semibold text-[#4A443D] mb-1">
                   전시 라벨 / 도록 사진 첨부
                 </label>
-                <input type="file" id="analysis-label-image-input" accept="image/*" class="hidden" />
+                <input type="file" id="analysis-label-image-input" accept="image/*" class="sr-only" />
                 <div class="flex items-center gap-3">
-                  <button 
-                    type="button" 
+                  <label 
+                    for="analysis-label-image-input"
                     id="btn-trigger-label-upload" 
-                    class="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#D5CFC3] hover:border-[#5C1D24] text-xs text-[#4A443D]">
-                    <i data-lucide="file-image" class="w-4 h-4 text-[#8F887D]"></i>
-                    <span>라벨 사진 선택</span>
-                  </button>
-                  <span id="label-image-status" class="text-xs text-[#8F887D]">첨부된 라벨 없음</span>
-                  <button type="button" id="btn-remove-label-img" class="hidden text-xs text-red-600 hover:underline">
+                    class="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#D5CFC3] hover:border-[#5C1D24] active:bg-[#F2ECE1] text-xs text-[#4A443D] cursor-pointer">
+                    <i data-lucide="file-image" class="w-4 h-4 text-[#8F887D] pointer-events-none"></i>
+                    <span class="pointer-events-none">라벨 사진 선택</span>
+                  </label>
+                  <span id="label-image-status" class="text-xs text-[#8F887D] truncate max-w-[160px]">첨부된 라벨 없음</span>
+                  <button type="button" id="btn-remove-label-img" class="hidden text-xs text-red-600 hover:underline cursor-pointer">
                     삭제
                   </button>
                 </div>
@@ -234,15 +239,19 @@
           </div>
 
           <!-- 3. Analyze CTA Button -->
-          <div class="pt-4 text-center">
+          <div class="pt-2 text-center space-y-2">
             <button 
               id="btn-start-analysis" 
-              class="w-full sm:w-auto min-w-[280px] bg-[#5C1D24] hover:bg-[#75252E] text-white px-8 py-4 text-xs sm:text-sm font-medium tracking-[0.18em] uppercase shadow-md transition-all active:scale-98">
+              type="button"
+              class="w-full sm:w-auto min-w-[280px] bg-[#5C1D24] hover:bg-[#75252E] active:scale-98 text-white px-8 py-4 text-xs sm:text-sm font-medium tracking-[0.18em] uppercase shadow-md transition-all cursor-pointer">
               <span class="inline-flex items-center gap-2">
                 <i data-lucide="sparkles" class="w-4 h-4"></i>
                 <span>AI 도슨트 심층 분석 시작</span>
               </span>
             </button>
+            <div class="text-[11px] text-[#8F887D]">
+              * 버튼을 누르면 AI가 그림의 붓질과 색채, 미술사적 맥락을 실시간으로 분석합니다.
+            </div>
           </div>
 
         </div>
@@ -267,23 +276,25 @@
       </div>
 
       <!-- 1-C. EDITORIAL DOCENT ANALYSIS REPORT RESULT -->
-      <div id="analysis-result-view" class="hidden space-y-12 max-w-4xl mx-auto">
+      <div id="analysis-result-view" class="hidden space-y-10 sm:space-y-12 max-w-4xl mx-auto">
         
         <!-- Action Bar (Top) -->
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#E8E3D7] pb-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E3D7] pb-4">
           <div class="text-[11px] font-serifEn tracking-[0.25em] uppercase text-[#722F37] font-semibold">
             Docent Analysis Report
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
             <button 
               id="btn-result-reset" 
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#D5CFC3] text-xs text-[#5C574F] hover:bg-white transition-colors">
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#D5CFC3] text-xs text-[#5C574F] hover:bg-white active:bg-[#F2ECE1] transition-colors cursor-pointer">
               <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
               <span>다른 작품 분석하기</span>
             </button>
             <button 
               id="btn-result-export-pdf" 
-              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs font-medium transition-colors">
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs font-medium transition-colors cursor-pointer">
               <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
               <span>PDF 도록 출력</span>
             </button>
@@ -291,7 +302,7 @@
         </div>
 
         <!-- 1. Artwork Hero & Identified Titles -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-6">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-6">
           <div class="bg-[#F2ECE1] border border-[#E2DDD3] p-4 flex items-center justify-center shadow-inner">
             <img 
               id="result-display-image" 
@@ -316,14 +327,12 @@
               <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
               <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">A. 작품의 첫인상과 시각적 분위기</h3>
             </div>
-            <div id="result-first-impression" class="editorial-quote text-sm text-[#2E2C28] leading-relaxed bg-[#FAF8F3] p-6 whitespace-pre-line font-serifKr">
-              <!-- Content -->
-            </div>
+            <div id="result-first-impression" class="editorial-quote text-sm text-[#2E2C28] leading-relaxed bg-[#FAF8F3] p-6 whitespace-pre-line font-serifKr"></div>
           </div>
         </div>
 
         <!-- Section B: Art Historical Context & Movements -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-4">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">B. 미술사적 맥락과 미술사조 분석</h3>
@@ -331,22 +340,18 @@
           <p class="text-xs text-[#8F887D]">
             * ART INSIGHT는 미술사조를 숫자나 백분율로 단정하지 않고, 시각적 요소들의 상호작용과 작가의 독창성을 평론 문체로 서술합니다.
           </p>
-          <div id="result-movements-tags" class="flex flex-wrap gap-2 pt-1">
-            <!-- Tags -->
-          </div>
-          <div id="result-historical-narrative" class="text-sm text-[#2E2C28] leading-relaxed bg-[#FAF9F6] border border-[#EAE5DA] p-6 whitespace-pre-line">
-            <!-- Content -->
-          </div>
+          <div id="result-movements-tags" class="flex flex-wrap gap-2 pt-1"></div>
+          <div id="result-historical-narrative" class="text-sm text-[#2E2C28] leading-relaxed bg-[#FAF9F6] border border-[#EAE5DA] p-6 whitespace-pre-line"></div>
         </div>
 
         <!-- Section C: Formal Elements -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-5">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-5">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">C. 화풍과 조형적 특징 (시각적 관찰 근거)</h3>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs sm:text-sm">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 text-xs sm:text-sm">
             <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6]">
               <strong class="font-serifKr text-[#722F37] block mb-1">1. 색채와 정서적 울림</strong>
               <p id="result-formal-color" class="text-[#3A352F] leading-relaxed"></p>
@@ -371,7 +376,7 @@
         </div>
 
         <!-- Section D: Similar Artists (3 Curated Artists) -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-5">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-5">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">D. 시각적 연관성을 지닌 유사 화풍의 작가 3인</h3>
@@ -379,18 +384,16 @@
           <p class="text-xs text-[#8F887D]">
             * 단순 나열이 아닌, 이미지에서 관찰된 실제 조형적 유사성과 차이점을 비교합니다.
           </p>
-          <div id="result-similar-artists-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- 3 Artist Cards -->
-          </div>
+          <div id="result-similar-artists-container" class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6"></div>
         </div>
 
         <!-- Section E: Interpretation & Meaning -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-4">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">E. 작품의 상징과 다각적 해석</h3>
           </div>
-          <div class="space-y-4 text-sm text-[#2E2C28] leading-relaxed">
+          <div class="space-y-4 text-xs sm:text-sm text-[#2E2C28] leading-relaxed">
             <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
               <strong class="text-xs font-serifEn tracking-wider text-[#722F37] uppercase block mb-1.5">상징과 주제 의식</strong>
               <p id="result-interp-symbols"></p>
@@ -403,23 +406,21 @@
         </div>
 
         <!-- Section F: Author Intent vs AI Observation -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-4">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">F. 작가 의도와 AI의 독립적인 시각 해석 비교</h3>
           </div>
-          <div id="result-author-vs-ai" class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF7F0] border-l-4 border-[#5C1D24] p-6 whitespace-pre-line">
-            <!-- Comparative content -->
-          </div>
+          <div id="result-author-vs-ai" class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF7F0] border-l-4 border-[#5C1D24] p-5 sm:p-6 whitespace-pre-line"></div>
         </div>
 
         <!-- Section G: Appreciation Guide -->
-        <div class="bg-white border border-[#E8E3D7] p-6 sm:p-10 shadow-sm space-y-4">
+        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
             <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">G. 도슨트 심층 감상 가이드</h3>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs sm:text-sm">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 text-xs sm:text-sm">
             <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
               <strong class="text-[#722F37] font-semibold block mb-2">다시 볼 때 주목할 시각적 포인트</strong>
               <ul id="result-guide-focus" class="list-disc pl-5 space-y-1.5 text-[#3A352F]"></ul>
@@ -432,7 +433,7 @@
         </div>
 
         <!-- 8. ARCHIVE SAVE SECTION (사용자의 개인 감상 및 아카이브 저장) -->
-        <div class="bg-[#FAF7F0] border-2 border-[#D5CFC3] p-6 sm:p-10 shadow-md space-y-6">
+        <div class="bg-[#FAF7F0] border-2 border-[#D5CFC3] p-5 sm:p-10 shadow-md space-y-6">
           <div class="border-b border-[#E2DDD3] pb-4">
             <span class="text-[10px] font-serifEn tracking-[0.2em] uppercase text-[#722F37] font-bold">Personal Archiving</span>
             <h3 class="font-serifKr text-xl font-bold text-[#1B1A17]">
@@ -479,7 +480,8 @@
           <div class="pt-3 flex flex-wrap justify-end gap-3">
             <button 
               id="btn-confirm-save-archive" 
-              class="bg-[#5C1D24] hover:bg-[#75252E] text-white px-7 py-3 text-xs font-medium tracking-wider uppercase shadow-sm transition-all">
+              type="button"
+              class="bg-[#5C1D24] hover:bg-[#75252E] text-white px-7 py-3 text-xs font-medium tracking-wider uppercase shadow-sm transition-all cursor-pointer">
               보관함(아카이브)에 저장하기
             </button>
           </div>
@@ -521,7 +523,7 @@
         
         <!-- Search Input -->
         <div class="relative flex-1">
-          <i data-lucide="search" class="w-4 h-4 text-[#8F887D] absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <i data-lucide="search" class="w-4 h-4 text-[#8F887D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
           <input 
             type="text" 
             id="search-input" 
@@ -559,9 +561,7 @@
       </div>
 
       <!-- Artwork Grid -->
-      <div id="archive-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-        <!-- Javascript dynamically inserts cards here -->
-      </div>
+      <div id="archive-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"></div>
 
       <!-- Empty State -->
       <div id="empty-state" class="hidden text-center py-20 px-4 bg-white border border-[#E8E3D7]">
@@ -576,7 +576,7 @@
         </p>
         <button 
           onclick="document.getElementById('nav-analysis').click()" 
-          class="inline-flex items-center gap-2 bg-[#5C1D24] hover:bg-[#75252E] text-white px-5 py-2.5 text-xs tracking-wider uppercase font-medium">
+          class="inline-flex items-center gap-2 bg-[#5C1D24] hover:bg-[#75252E] text-white px-5 py-2.5 text-xs tracking-wider uppercase font-medium cursor-pointer">
           <i data-lucide="sparkles" class="w-4 h-4"></i>
           <span>작품 분석하러 가기</span>
         </button>
@@ -586,28 +586,34 @@
 
   </main>
 
-  <!-- ================= MOBILE BOTTOM NAVIGATION ================= -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-t border-[#E8E3D7] px-8 py-3 flex items-center justify-around">
-    <button id="nav-analysis-mobile" class="flex flex-col items-center gap-1 text-burgundy">
-      <i data-lucide="sparkles" class="w-5 h-5"></i>
-      <span class="text-[10px] tracking-wider uppercase font-medium">작품 분석</span>
+  <!-- ================= MOBILE BOTTOM NAVIGATION (3개 탭 명시적 제공) ================= -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6]/98 backdrop-blur-md border-t border-[#E8E3D7] px-6 py-2.5 flex items-center justify-around shadow-lg">
+    <button id="nav-analysis-mobile" type="button" class="flex flex-col items-center gap-1 text-burgundy cursor-pointer py-1 px-3">
+      <i data-lucide="sparkles" class="w-5 h-5 pointer-events-none"></i>
+      <span class="text-[10px] tracking-wider uppercase font-medium pointer-events-none">작품 분석</span>
     </button>
 
-    <button id="nav-archive-mobile" class="flex flex-col items-center gap-1 text-[#8F887D]">
-      <i data-lucide="archive" class="w-5 h-5"></i>
-      <span class="text-[10px] tracking-wider uppercase font-medium">보관함</span>
+    <button id="nav-archive-mobile" type="button" class="flex flex-col items-center gap-1 text-[#8F887D] cursor-pointer py-1 px-3">
+      <i data-lucide="archive" class="w-5 h-5 pointer-events-none"></i>
+      <span class="text-[10px] tracking-wider uppercase font-medium pointer-events-none">보관함</span>
+    </button>
+
+    <!-- 모바일 하단 전용 AI 모델 설정 버튼 -->
+    <button id="btn-open-api-key-mobile" type="button" class="flex flex-col items-center gap-1 text-[#8F887D] cursor-pointer py-1 px-3">
+      <i data-lucide="key" class="w-5 h-5 pointer-events-none"></i>
+      <span class="text-[10px] tracking-wider uppercase font-medium pointer-events-none">AI 설정</span>
     </button>
   </nav>
 
   <!-- ================= MODAL: GEMINI API KEY 설정 ================= -->
   <div id="modal-api-key" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
-    <div class="bg-white border border-[#DCD5C7] w-full max-w-md shadow-2xl modal-content p-6 space-y-5">
+    <div class="bg-white border border-[#DCD5C7] w-full max-w-md shadow-2xl modal-content p-5 sm:p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-[#E8E3D7] pb-3">
         <div class="flex items-center gap-2">
           <i data-lucide="key" class="w-5 h-5 text-[#5C1D24]"></i>
           <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">Google Gemini API 설정</h3>
         </div>
-        <button id="btn-close-api-key" class="text-[#8F887D] hover:text-[#1B1A17]">
+        <button id="btn-close-api-key" type="button" class="text-[#8F887D] hover:text-[#1B1A17] p-1 cursor-pointer">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -616,12 +622,16 @@
         <p>
           ART INSIGHT는 가짜 데모 결과가 아닌 <strong>실제 Google Gemini 1.5 비전 모델</strong>을 호출하여 이미지를 심층 분석합니다.
         </p>
-        <p class="bg-[#FAF7F0] p-3 border border-[#E8E3D7] text-[#4A443D]">
-          💡 <strong>API 키 무료 발급 방법:</strong><br />
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[#5C1D24] underline font-medium">Google AI Studio (aistudio.google.com)</a>에서 구글 계정으로 로그인 후 <strong>"Get API key"</strong>를 누르면 무료로 즉시 발급받으실 수 있습니다.
-        </p>
+        <div class="bg-[#FAF7F0] p-3 border border-[#E8E3D7] text-[#4A443D] space-y-1">
+          <div>💡 <strong>Gemini API 키 무료 발급 (1분 소요):</strong></div>
+          <div>
+            1. <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[#5C1D24] underline font-bold">Google AI Studio (클릭하여 이동)</a>에 접속합니다.
+          </div>
+          <div>2. 구글 계정으로 로그인 후 <strong>"Create API key"</strong>를 누릅니다.</div>
+          <div>3. 발급받은 키(AIzaSy...)를 아래에 붙여넣고 저장하세요.</div>
+        </div>
         <p class="text-[11px] text-[#8F887D]">
-          * 입력된 API 키는 브라우저 내부(LocalStorage)에만 안전하게 보관되며 외부 서버로 전송되지 않습니다.
+          * 입력된 API 키는 브라우저 내부(LocalStorage)에만 안전하게 보관됩니다.
         </p>
       </div>
 
@@ -641,23 +651,63 @@
         <button 
           type="button" 
           id="btn-delete-api-key" 
-          class="text-xs text-red-600 hover:underline">
+          class="text-xs text-red-600 hover:underline cursor-pointer">
           키 삭제
         </button>
         <div class="flex gap-2">
           <button 
             type="button" 
-            onclick="document.getElementById('btn-close-api-key').click()" 
-            class="px-4 py-2 border border-[#D5CFC3] text-xs text-[#5C574F]">
+            id="btn-cancel-api-key"
+            class="px-4 py-2 border border-[#D5CFC3] text-xs text-[#5C574F] cursor-pointer">
             닫기
           </button>
           <button 
             type="button" 
             id="btn-save-api-key" 
-            class="px-5 py-2 bg-[#5C1D24] hover:bg-[#75252E] text-white text-xs font-medium">
+            class="px-5 py-2 bg-[#5C1D24] hover:bg-[#75252E] text-white text-xs font-medium cursor-pointer">
             저장하기
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ERROR & DEMO PROMPT MODAL ================= -->
+  <div id="modal-error-help" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+    <div class="bg-white border border-[#DCD5C7] w-full max-w-md shadow-2xl modal-content p-6 space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-serifKr text-base font-bold text-[#1B1A17]" id="error-help-title">
+            AI 분석 알림
+          </h3>
+          <p class="text-xs text-[#5C574F] mt-1 leading-relaxed" id="error-help-desc">
+            <!-- Dynamic Message -->
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-[#E8E3D7] flex flex-col gap-2">
+        <button 
+          type="button" 
+          id="btn-action-open-api-from-error" 
+          class="w-full bg-[#5C1D24] hover:bg-[#75252E] text-white py-2.5 text-xs font-medium uppercase tracking-wider">
+          Gemini API 키 등록/수정하기
+        </button>
+        <button 
+          type="button" 
+          id="btn-action-try-demo" 
+          class="w-full border border-[#D5CFC3] hover:bg-[#FAF8F3] text-[#333] py-2 text-xs font-medium">
+          💡 체험용 도슨트 리포트로 미리보기 (키 없이 즉시 확인)
+        </button>
+        <button 
+          type="button" 
+          id="btn-close-error-help" 
+          class="text-xs text-[#8F887D] hover:underline py-1">
+          닫기
+        </button>
       </div>
     </div>
   </div>
@@ -672,39 +722,36 @@
           ART INSIGHT CURATED ARCHIVE
         </div>
         <div class="flex items-center gap-2">
-          <!-- PDF Export -->
           <button 
             id="btn-detail-export-pdf" 
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs transition-colors">
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs transition-colors cursor-pointer">
             <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
             <span>PDF 도록 출력</span>
           </button>
 
-          <!-- Edit -->
           <button 
             id="btn-detail-edit" 
-            class="p-1.5 border border-[#D5CFC3] text-[#5C574F] hover:text-[#1B1A17] hover:bg-[#F5F0E8] transition-colors">
+            type="button"
+            class="p-1.5 border border-[#D5CFC3] text-[#5C574F] hover:text-[#1B1A17] hover:bg-[#F5F0E8] transition-colors cursor-pointer">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
           </button>
 
-          <!-- Delete -->
           <button 
             id="btn-detail-delete" 
-            class="p-1.5 border border-[#D5CFC3] text-red-700 hover:bg-red-50 transition-colors">
+            type="button"
+            class="p-1.5 border border-[#D5CFC3] text-red-700 hover:bg-red-50 transition-colors cursor-pointer">
             <i data-lucide="trash" class="w-4 h-4"></i>
           </button>
 
-          <!-- Close -->
-          <button id="btn-close-detail" class="p-1 text-[#8F887D] hover:text-[#1B1A17] ml-2">
+          <button id="btn-close-detail" type="button" class="p-1 text-[#8F887D] hover:text-[#1B1A17] ml-2 cursor-pointer">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
       </div>
 
       <!-- Detail Body -->
-      <div id="detail-body-container" class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
-        <!-- Javascript dynamically inserts detailed report and personal notes -->
-      </div>
+      <div id="detail-body-container" class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6"></div>
 
     </div>
   </div>

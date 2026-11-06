@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mainImageDataUrl: null,
     labelImageDataUrl: null,
     currentAnalysisResult: null,
-    saveRating: 0,
+    saveRating: 5,
     artworks: [],
     selectedArtwork: null,
     searchKeyword: '',
@@ -32,14 +32,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // API Key 모달 및 상태
     btnOpenApiKey: document.getElementById('btn-open-api-key'),
+    btnOpenApiKeyMobile: document.getElementById('btn-open-api-key-mobile'),
+    btnBannerOpenApiKey: document.getElementById('btn-banner-open-api-key'),
     modalApiKey: document.getElementById('modal-api-key'),
     btnCloseApiKey: document.getElementById('btn-close-api-key'),
+    btnCancelApiKey: document.getElementById('btn-cancel-api-key'),
     inputGeminiApiKey: document.getElementById('input-gemini-api-key'),
     btnSaveApiKey: document.getElementById('btn-save-api-key'),
     btnDeleteApiKey: document.getElementById('btn-delete-api-key'),
     apiStatusDot: document.getElementById('api-status-dot'),
     apiStatusLabel: document.getElementById('api-status-label'),
     bannerApiKeyWarning: document.getElementById('banner-api-key-warning'),
+
+    // 에러 & 데모 안내 모달
+    modalErrorHelp: document.getElementById('modal-error-help'),
+    errorHelpTitle: document.getElementById('error-help-title'),
+    errorHelpDesc: document.getElementById('error-help-desc'),
+    btnActionOpenApiFromError: document.getElementById('btn-action-open-api-from-error'),
+    btnActionTryDemo: document.getElementById('btn-action-try-demo'),
+    btnCloseErrorHelp: document.getElementById('btn-close-error-help'),
 
     // 분석 입력 영역
     analysisInputContainer: document.getElementById('analysis-input-container'),
@@ -50,7 +61,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnRemoveMainImg: document.getElementById('btn-remove-main-img'),
     analysisAuthorNotes: document.getElementById('analysis-author-notes'),
     analysisLabelImageInput: document.getElementById('analysis-label-image-input'),
-    btnTriggerLabelUpload: document.getElementById('btn-trigger-label-upload'),
     labelImageStatus: document.getElementById('label-image-status'),
     btnRemoveLabelImg: document.getElementById('btn-remove-label-img'),
     btnStartAnalysis: document.getElementById('btn-start-analysis'),
@@ -112,7 +122,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateApiKeyStatusUI();
     setupStarRating(elements.saveStarRating, (r) => { state.saveRating = r; });
     
-    // 오늘 날짜 기본 세팅
     if (elements.archiveSaveDate) {
       elements.archiveSaveDate.value = new Date().toISOString().slice(0, 10);
     }
@@ -126,11 +135,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const hasKey = ArtAiDocent.hasApiKey();
     if (hasKey) {
       elements.apiStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-600';
-      elements.apiStatusLabel.textContent = 'AI 연결됨';
+      if (elements.apiStatusLabel) elements.apiStatusLabel.textContent = 'AI 연결됨';
       elements.bannerApiKeyWarning.classList.add('hidden');
     } else {
       elements.apiStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
-      elements.apiStatusLabel.textContent = 'API 키 설정 필요';
+      if (elements.apiStatusLabel) elements.apiStatusLabel.textContent = 'API 키 설정 필요';
       elements.bannerApiKeyWarning.classList.remove('hidden');
     }
   }
@@ -161,37 +170,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
   }
 
-  // 4. 이미지 압축 처리 (Canvas 리사이징)
+  // 4. 모바일/PC 이미지 압축 및 안전 변환
   function optimizeImage(file, maxDimension = 1600, quality = 0.85) {
     return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith('image/')) {
+        return reject(new Error('이미지 파일(JPG, PNG 등)만 등록할 수 있습니다.'));
+      }
+
       const reader = new FileReader();
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('이미지 파일을 읽는 중 오류가 발생했습니다.'));
       reader.onload = (e) => {
         const img = new Image();
-        img.onerror = reject;
+        img.onerror = () => reject(new Error('이미지 객체 생성에 실패했습니다.'));
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+          try {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
 
-          if (width > height) {
-            if (width > maxDimension) {
-              height = Math.round((height * maxDimension) / width);
-              width = maxDimension;
+            if (width > height) {
+              if (width > maxDimension) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              }
+            } else {
+              if (height > maxDimension) {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
             }
-          } else {
-            if (height > maxDimension) {
-              width = Math.round((width * maxDimension) / height);
-              height = maxDimension;
-            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          } catch (canvasErr) {
+            // 캔버스 실패 시 원본 DataURL로 Fallback
+            resolve(e.target.result);
           }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.src = e.target.result;
       };
@@ -202,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 5. 별점 UI 헬퍼
   function setupStarRating(container, onSelect) {
     container.innerHTML = [1, 2, 3, 4, 5].map(val => `
-      <button type="button" class="star-btn" data-value="${val}">★</button>
+      <button type="button" class="star-btn cursor-pointer" data-value="${val}">★</button>
     `).join('');
 
     container.querySelectorAll('.star-btn').forEach(btn => {
@@ -228,18 +246,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 6. AI 작품 분석 실행
+  // 6. 에러 안내 모달 띄우기
+  function showErrorHelp(title, desc) {
+    elements.errorHelpTitle.textContent = title;
+    elements.errorHelpDesc.textContent = desc;
+    elements.modalErrorHelp.classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  // 7. AI 작품 분석 실행
   async function startAnalysis() {
-    // API 키 확인
-    if (!ArtAiDocent.hasApiKey()) {
-      elements.modalApiKey.classList.remove('hidden');
-      alert('AI 작품 분석을 위해 먼저 Gemini API 키를 등록해주세요.');
+    // 메인 이미지 확인
+    if (!state.mainImageDataUrl) {
+      alert('분석할 작품 사진을 먼저 선택해주세요.');
       return;
     }
 
-    // 메인 이미지 확인
-    if (!state.mainImageDataUrl) {
-      alert('분석할 작품 사진을 먼저 업로드해주세요.');
+    // API 키 확인
+    if (!ArtAiDocent.hasApiKey()) {
+      showErrorHelp(
+        'Gemini API 키가 등록되지 않았습니다',
+        'ART INSIGHT의 실제 AI 비전 분석을 실행하려면 Google AI Studio의 무료 Gemini API 키가 필요합니다. 키를 등록하시거나, 아래 버튼을 눌러 체험용 도슨트 리포트로 먼저 확인해보실 수 있습니다.'
+      );
       return;
     }
 
@@ -249,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.analysisLoading.classList.remove('hidden');
     window.scrollTo({ top: 100, behavior: 'smooth' });
 
-    // 감성적 프로그레스 메시지 로테이션
+    // 프로그레스 메시지 로테이션
     const loadingMessages = [
       '화면의 붓질과 색채의 긴장감을 면밀히 관찰하고 있습니다...',
       '구도와 공간의 배치, 시선의 흐름을 추적하고 있습니다...',
@@ -261,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const msgTimer = setInterval(() => {
       msgIndex = (msgIndex + 1) % loadingMessages.length;
       elements.loadingStageText.textContent = loadingMessages[msgIndex];
-    }, 2800);
+    }, 2600);
 
     try {
       const authorNotes = elements.analysisAuthorNotes.value.trim();
@@ -275,7 +303,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.currentAnalysisResult = report;
       renderAnalysisResult(report);
       
-      // 로딩 종료 및 결과 화면 표시
       clearInterval(msgTimer);
       elements.analysisLoading.classList.add('hidden');
       elements.analysisResultView.classList.remove('hidden');
@@ -286,20 +313,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       clearInterval(msgTimer);
       elements.analysisLoading.classList.add('hidden');
       elements.analysisInputContainer.classList.remove('hidden');
-      console.error('분석 에러:', err);
-      alert(`AI 분석 오류: ${err.message}`);
+      console.error('분석 실패 상세:', err);
+
+      showErrorHelp(
+        'AI 분석 연결 오류',
+        `${err.message}\n\n* API 키의 철자를 확인하시거나, 아래 버튼을 눌러 체험용 정밀 도슨트 리포트로 미리보실 수 있습니다.`
+      );
     }
   }
 
-  // 7. 분석 결과 화면 렌더링
+  // 8. 분석 결과 화면 렌더링
   function renderAnalysisResult(report) {
-    // 메인 이미지 & 헤더
     elements.resultDisplayImage.src = state.mainImageDataUrl;
     elements.resultDisplayTitle.textContent = report.suggestedTitle || '제목 미상';
     elements.resultDisplayArtist.textContent = report.suggestedArtist || '작가 미상';
 
     // A. 첫인상
-    elements.resultFirstImpression.textContent = report.firstImpression || '첫인상 분석 정보가 없습니다.';
+    elements.resultFirstImpression.textContent = report.firstImpression || '';
 
     // B. 미술사적 맥락
     const movements = report.artHistoricalContext?.movements || [];
@@ -371,7 +401,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateStarUI(elements.saveStarRating, 5);
   }
 
-  // 8. 아카이브에 영구 저장하기
+  // 9. 체험용 도슨트 리포트 실행 (API 키 없이도 전체 기능 확인)
+  function runDemoReport() {
+    elements.modalErrorHelp.classList.add('hidden');
+    elements.analysisInputContainer.classList.add('hidden');
+    elements.analysisLoading.classList.add('hidden');
+
+    // 만약 이미지가 아직 없으면 기본 명화 프리뷰 설정
+    if (!state.mainImageDataUrl) {
+      state.mainImageDataUrl = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80';
+    }
+
+    const demoReport = ArtAiDocent.generateSampleDocentReport();
+    state.currentAnalysisResult = demoReport;
+    renderAnalysisResult(demoReport);
+
+    elements.analysisResultView.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    lucide.createIcons();
+  }
+
+  // 10. 아카이브에 영구 저장하기
   async function saveAnalysisToArchive() {
     if (!state.mainImageDataUrl) return;
 
@@ -398,7 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 9. 아카이브 목록 로드 및 렌더링
+  // 11. 아카이브 목록 로드 및 렌더링
   async function loadArchive() {
     const artworks = await ArtStorage.searchArtworks(
       state.searchKeyword,
@@ -459,7 +509,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     lucide.createIcons();
 
-    // 카드 클릭 시 상세 모달 오픈
     document.querySelectorAll('.artwork-card').forEach(card => {
       card.addEventListener('click', () => {
         openDetailModal(card.dataset.id);
@@ -467,7 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 10. 아카이브 상세 모달
+  // 12. 아카이브 상세 모달
   async function openDetailModal(id) {
     const artwork = await ArtStorage.getArtworkById(id);
     if (!artwork) return;
@@ -564,7 +613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
   }
 
-  // 11. 이벤트 리스너 설정
+  // 13. 이벤트 리스너 설정
   function setupEventListeners() {
     // 탭 전환
     elements.navAnalysis.addEventListener('click', () => switchTab('analysis'));
@@ -572,14 +621,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.navAnalysisMobile?.addEventListener('click', () => switchTab('analysis'));
     elements.navArchiveMobile?.addEventListener('click', () => switchTab('archive'));
 
-    // API Key 모달 제어
-    elements.btnOpenApiKey.addEventListener('click', () => {
+    // API Key 모달 열기 (PC 상단, 모바일 하단, 배너 등 모든 진입로 완벽 바인딩)
+    const openApiKeyModal = () => {
       elements.inputGeminiApiKey.value = ArtAiDocent.getApiKey();
       elements.modalApiKey.classList.remove('hidden');
-    });
-    elements.btnCloseApiKey.addEventListener('click', () => {
+      elements.modalErrorHelp.classList.add('hidden');
+    };
+
+    elements.btnOpenApiKey.addEventListener('click', openApiKeyModal);
+    elements.btnOpenApiKeyMobile?.addEventListener('click', openApiKeyModal);
+    elements.btnBannerOpenApiKey?.addEventListener('click', openApiKeyModal);
+    elements.btnActionOpenApiFromError?.addEventListener('click', openApiKeyModal);
+
+    // API Key 모달 닫기
+    const closeApiKeyModal = () => {
       elements.modalApiKey.classList.add('hidden');
-    });
+    };
+    elements.btnCloseApiKey.addEventListener('click', closeApiKeyModal);
+    elements.btnCancelApiKey.addEventListener('click', closeApiKeyModal);
+
+    // API Key 저장
     elements.btnSaveApiKey.addEventListener('click', () => {
       const val = elements.inputGeminiApiKey.value.trim();
       if (!val) {
@@ -588,30 +649,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       ArtAiDocent.setApiKey(val);
       updateApiKeyStatusUI();
-      elements.modalApiKey.classList.add('hidden');
-      alert('Gemini API 키가 저장되었습니다.');
+      closeApiKeyModal();
+      alert('Gemini API 키가 안전하게 등록되었습니다!');
     });
+
+    // API Key 삭제
     elements.btnDeleteApiKey.addEventListener('click', () => {
       if (confirm('저장된 API 키를 삭제하시겠습니까?')) {
         ArtAiDocent.setApiKey('');
         elements.inputGeminiApiKey.value = '';
         updateApiKeyStatusUI();
-        elements.modalApiKey.classList.add('hidden');
+        closeApiKeyModal();
       }
     });
 
-    // 메인 이미지 업로드 (파일 선택 및 드래그앤드롭)
-    elements.analysisDropzone.addEventListener('click', () => elements.analysisMainImageInput.click());
+    // 에러 모달 내 데모 버튼 및 닫기
+    elements.btnActionTryDemo.addEventListener('click', runDemoReport);
+    elements.btnCloseErrorHelp.addEventListener('click', () => {
+      elements.modalErrorHelp.classList.add('hidden');
+    });
+
+    // 메인 이미지 업로드 이벤트 (네이티브 change 이벤트)
     elements.analysisMainImageInput.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
-        const optimized = await optimizeImage(e.target.files[0]);
-        state.mainImageDataUrl = optimized;
-        elements.analysisMainPreviewImg.src = optimized;
-        elements.analysisDropzone.classList.add('hidden');
-        elements.analysisMainPreviewBox.classList.remove('hidden');
+        try {
+          const optimized = await optimizeImage(e.target.files[0]);
+          state.mainImageDataUrl = optimized;
+          elements.analysisMainPreviewImg.src = optimized;
+          elements.analysisDropzone.classList.add('hidden');
+          elements.analysisMainPreviewBox.classList.remove('hidden');
+        } catch (err) {
+          alert(err.message);
+        }
       }
     });
 
+    // PC 드래그 앤 드롭
     elements.analysisDropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
       elements.analysisDropzone.classList.add('border-[#5C1D24]', 'bg-[#F2ECE5]');
@@ -623,32 +696,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       elements.analysisDropzone.classList.remove('border-[#5C1D24]', 'bg-[#F2ECE5]');
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        const optimized = await optimizeImage(e.dataTransfer.files[0]);
-        state.mainImageDataUrl = optimized;
-        elements.analysisMainPreviewImg.src = optimized;
-        elements.analysisDropzone.classList.add('hidden');
-        elements.analysisMainPreviewBox.classList.remove('hidden');
+        try {
+          const optimized = await optimizeImage(e.dataTransfer.files[0]);
+          state.mainImageDataUrl = optimized;
+          elements.analysisMainPreviewImg.src = optimized;
+          elements.analysisDropzone.classList.add('hidden');
+          elements.analysisMainPreviewBox.classList.remove('hidden');
+        } catch (err) {
+          alert(err.message);
+        }
       }
     });
 
-    elements.btnRemoveMainImg.addEventListener('click', () => {
+    elements.btnRemoveMainImg.addEventListener('click', (e) => {
+      e.stopPropagation();
       state.mainImageDataUrl = null;
+      elements.analysisMainImageInput.value = '';
       elements.analysisMainPreviewImg.src = '';
       elements.analysisMainPreviewBox.classList.add('hidden');
       elements.analysisDropzone.classList.remove('hidden');
     });
 
-    // 라벨 이미지 첨부
-    elements.btnTriggerLabelUpload.addEventListener('click', () => elements.analysisLabelImageInput.click());
+    // 라벨 이미지 첨부 이벤트
     elements.analysisLabelImageInput.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
-        const opt = await optimizeImage(e.target.files[0], 1200, 0.8);
-        state.labelImageDataUrl = opt;
-        elements.labelImageStatus.textContent = e.target.files[0].name;
-        elements.btnRemoveLabelImg.classList.remove('hidden');
+        try {
+          const opt = await optimizeImage(e.target.files[0], 1200, 0.8);
+          state.labelImageDataUrl = opt;
+          elements.labelImageStatus.textContent = e.target.files[0].name;
+          elements.btnRemoveLabelImg.classList.remove('hidden');
+        } catch (err) {
+          alert(err.message);
+        }
       }
     });
-    elements.btnRemoveLabelImg.addEventListener('click', () => {
+    elements.btnRemoveLabelImg.addEventListener('click', (e) => {
+      e.stopPropagation();
       state.labelImageDataUrl = null;
       elements.analysisLabelImageInput.value = '';
       elements.labelImageStatus.textContent = '첨부된 라벨 없음';
@@ -664,6 +747,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.mainImageDataUrl = null;
         state.labelImageDataUrl = null;
         state.currentAnalysisResult = null;
+        elements.analysisMainImageInput.value = '';
+        elements.analysisLabelImageInput.value = '';
         elements.analysisAuthorNotes.value = '';
         elements.analysisMainPreviewImg.src = '';
         elements.analysisMainPreviewBox.classList.add('hidden');
@@ -717,7 +802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // 상세 모달에서 수정 (간단 프롬프트 수정)
+    // 상세 모달에서 수정
     elements.btnDetailEdit.addEventListener('click', async () => {
       if (!state.selectedArtwork) return;
       const newTitle = prompt('작품명을 입력하세요:', state.selectedArtwork.title);
@@ -757,7 +842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // 배경 클릭 시 모달 닫기
-    [elements.modalApiKey, elements.modalDetail].forEach(modal => {
+    [elements.modalApiKey, elements.modalErrorHelp, elements.modalDetail].forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.classList.add('hidden');
@@ -767,7 +852,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // HTML escape
+  // HTML escape 유틸
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
