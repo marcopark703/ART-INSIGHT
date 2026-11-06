@@ -1,35 +1,96 @@
 /**
- * ART INSIGHT — Main Application Logic
+ * ART INSIGHT — Core Application Controller
+ * AI 작품 분석 중심의 인터랙션 및 아카이브 연동 로직
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Lucide 아이콘 초기화
   lucide.createIcons();
 
-  // 앱 상태
+  // 앱 상태 관리
   const state = {
-    currentTab: 'archive', // 'discover' | 'archive'
+    currentTab: 'analysis', // 'analysis' | 'archive'
+    mainImageDataUrl: null,
+    labelImageDataUrl: null,
+    currentAnalysisResult: null,
+    saveRating: 0,
     artworks: [],
     selectedArtwork: null,
     searchKeyword: '',
     ratingFilter: 0,
-    sortBy: 'latest',
-    newEntryImage: null,
-    newEntryRating: 0,
-    editRating: 0
+    sortBy: 'latest'
   };
 
-  // DOM 요소 캐싱
+  // DOM 캐싱
   const elements = {
-    // 탭 및 뷰
-    navDiscover: document.getElementById('nav-discover'),
+    // 탭 네비게이션
+    navAnalysis: document.getElementById('nav-analysis'),
     navArchive: document.getElementById('nav-archive'),
-    navDiscoverMobile: document.getElementById('nav-discover-mobile'),
+    navAnalysisMobile: document.getElementById('nav-analysis-mobile'),
     navArchiveMobile: document.getElementById('nav-archive-mobile'),
-    viewDiscover: document.getElementById('view-discover'),
+    viewAnalysis: document.getElementById('view-analysis'),
     viewArchive: document.getElementById('view-archive'),
 
-    // 아카이브 요소
+    // API Key 모달 및 상태
+    btnOpenApiKey: document.getElementById('btn-open-api-key'),
+    modalApiKey: document.getElementById('modal-api-key'),
+    btnCloseApiKey: document.getElementById('btn-close-api-key'),
+    inputGeminiApiKey: document.getElementById('input-gemini-api-key'),
+    btnSaveApiKey: document.getElementById('btn-save-api-key'),
+    btnDeleteApiKey: document.getElementById('btn-delete-api-key'),
+    apiStatusDot: document.getElementById('api-status-dot'),
+    apiStatusLabel: document.getElementById('api-status-label'),
+    bannerApiKeyWarning: document.getElementById('banner-api-key-warning'),
+
+    // 분석 입력 영역
+    analysisInputContainer: document.getElementById('analysis-input-container'),
+    analysisMainImageInput: document.getElementById('analysis-main-image-input'),
+    analysisDropzone: document.getElementById('analysis-dropzone'),
+    analysisMainPreviewBox: document.getElementById('analysis-main-preview-box'),
+    analysisMainPreviewImg: document.getElementById('analysis-main-preview-img'),
+    btnRemoveMainImg: document.getElementById('btn-remove-main-img'),
+    analysisAuthorNotes: document.getElementById('analysis-author-notes'),
+    analysisLabelImageInput: document.getElementById('analysis-label-image-input'),
+    btnTriggerLabelUpload: document.getElementById('btn-trigger-label-upload'),
+    labelImageStatus: document.getElementById('label-image-status'),
+    btnRemoveLabelImg: document.getElementById('btn-remove-label-img'),
+    btnStartAnalysis: document.getElementById('btn-start-analysis'),
+
+    // 분석 로딩 영역
+    analysisLoading: document.getElementById('analysis-loading'),
+    loadingStageText: document.getElementById('loading-stage-text'),
+
+    // 분석 결과 에디토리얼 리포트 영역
+    analysisResultView: document.getElementById('analysis-result-view'),
+    btnResultReset: document.getElementById('btn-result-reset'),
+    btnResultExportPdf: document.getElementById('btn-result-export-pdf'),
+    resultDisplayImage: document.getElementById('result-display-image'),
+    resultDisplayTitle: document.getElementById('result-display-title'),
+    resultDisplayArtist: document.getElementById('result-display-artist'),
+    resultFirstImpression: document.getElementById('result-first-impression'),
+    resultMovementsTags: document.getElementById('result-movements-tags'),
+    resultHistoricalNarrative: document.getElementById('result-historical-narrative'),
+    resultFormalColor: document.getElementById('result-formal-color'),
+    resultFormalComposition: document.getElementById('result-formal-composition'),
+    resultFormalForm: document.getElementById('result-formal-form'),
+    resultFormalTexture: document.getElementById('result-formal-texture'),
+    resultFormalLight: document.getElementById('result-formal-light'),
+    resultSimilarArtistsContainer: document.getElementById('result-similar-artists-container'),
+    resultInterpSymbols: document.getElementById('result-interp-symbols'),
+    resultInterpPerspectives: document.getElementById('result-interp-perspectives'),
+    resultAuthorVsAi: document.getElementById('result-author-vs-ai'),
+    resultGuideFocus: document.getElementById('result-guide-focus'),
+    resultGuideQuestions: document.getElementById('result-guide-questions'),
+
+    // 결과 하단 아카이브 저장 폼
+    archiveSaveTitle: document.getElementById('archive-save-title'),
+    archiveSaveArtist: document.getElementById('archive-save-artist'),
+    archiveSaveLocation: document.getElementById('archive-save-location'),
+    archiveSaveDate: document.getElementById('archive-save-date'),
+    saveStarRating: document.getElementById('save-star-rating'),
+    archiveSaveNotes: document.getElementById('archive-save-notes'),
+    btnConfirmSaveArchive: document.getElementById('btn-confirm-save-archive'),
+
+    // 아카이브 뷰
     archiveGrid: document.getElementById('archive-grid'),
     emptyState: document.getElementById('empty-state'),
     searchInput: document.getElementById('search-input'),
@@ -37,266 +98,111 @@ document.addEventListener('DOMContentLoaded', async () => {
     sortSelect: document.getElementById('sort-select'),
     totalCountBadge: document.getElementById('total-count-badge'),
 
-    // 작품 등록 모달
-    btnOpenCreate: document.getElementById('btn-open-create'),
-    btnOpenCreateMobile: document.getElementById('btn-open-create-mobile'),
-    modalCreate: document.getElementById('modal-create'),
-    btnCloseCreate: document.getElementById('btn-close-create'),
-    formCreate: document.getElementById('form-create'),
-    inputImage: document.getElementById('input-image'),
-    dropZone: document.getElementById('drop-zone'),
-    previewContainer: document.getElementById('preview-container'),
-    previewImage: document.getElementById('preview-image'),
-    btnRemoveImage: document.getElementById('btn-remove-image'),
-    createStarContainer: document.getElementById('create-star-rating'),
-
-    // 작품 상세 모달
+    // 아카이브 상세 모달
     modalDetail: document.getElementById('modal-detail'),
     btnCloseDetail: document.getElementById('btn-close-detail'),
-    detailImage: document.getElementById('detail-image'),
-    detailTitle: document.getElementById('detail-title'),
-    detailArtist: document.getElementById('detail-artist'),
-    detailLocation: document.getElementById('detail-location'),
-    detailDate: document.getElementById('detail-date'),
-    detailRating: document.getElementById('detail-rating'),
-    detailNotes: document.getElementById('detail-notes'),
-    btnExportPdf: document.getElementById('btn-export-pdf'),
-    btnEditArtwork: document.getElementById('btn-edit-artwork'),
-    btnDeleteArtwork: document.getElementById('btn-delete-artwork'),
-
-    // 작품 수정 모달
-    modalEdit: document.getElementById('modal-edit'),
-    btnCloseEdit: document.getElementById('btn-close-edit'),
-    formEdit: document.getElementById('form-edit'),
-    editTitle: document.getElementById('edit-title'),
-    editArtist: document.getElementById('edit-artist'),
-    editLocation: document.getElementById('edit-location'),
-    editDate: document.getElementById('edit-date'),
-    editNotes: document.getElementById('edit-notes'),
-    editStarContainer: document.getElementById('edit-star-rating')
+    btnDetailExportPdf: document.getElementById('btn-detail-export-pdf'),
+    btnDetailEdit: document.getElementById('btn-detail-edit'),
+    btnDetailDelete: document.getElementById('btn-detail-delete'),
+    detailBodyContainer: document.getElementById('detail-body-container')
   };
 
-  // 1. 초기 데이터 로드 및 샘플 시딩 (비어있을 때 명화 1점 안내용)
-  async function initApp() {
-    let artworks = await ArtStorage.getAllArtworks();
-    if (artworks.length === 0) {
-      await seedSampleData();
-      artworks = await ArtStorage.getAllArtworks();
+  // 1. 앱 초기화
+  async function init() {
+    updateApiKeyStatusUI();
+    setupStarRating(elements.saveStarRating, (r) => { state.saveRating = r; });
+    
+    // 오늘 날짜 기본 세팅
+    if (elements.archiveSaveDate) {
+      elements.archiveSaveDate.value = new Date().toISOString().slice(0, 10);
     }
-    state.artworks = artworks;
-    renderArchive();
+
     setupEventListeners();
+    await loadArchive();
   }
 
-  // 초기 안내용 샘플 데이터 (빈 화면 방지)
-  async function seedSampleData() {
-    const sampleArtwork = {
-      title: '밤의 카페 테라스 (Café Terrace at Night)',
-      artist: '빈센트 반 고흐 (Vincent van Gogh)',
-      location: '오르세 미술관 특별전',
-      viewDate: new Date().toISOString().slice(0, 10),
-      rating: 5,
-      notes: '검은색을 전혀 쓰지 않고도 밤하늘의 짙은 어둠과 황홀한 별빛을 표현해낸 강렬한 노란색과 짙은 코발트 블루의 대조가 가슴을 뭉클하게 한다. 테라스의 따스한 가스등 아래 모여 있는 사람들의 모습에서 쓸쓸함 속의 온기가 느껴진다.',
-      image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
-      createdAt: new Date().toISOString()
-    };
-    await ArtStorage.addArtwork(sampleArtwork);
+  // 2. API Key 상태 UI 업데이트
+  function updateApiKeyStatusUI() {
+    const hasKey = ArtAiDocent.hasApiKey();
+    if (hasKey) {
+      elements.apiStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-600';
+      elements.apiStatusLabel.textContent = 'AI 연결됨';
+      elements.bannerApiKeyWarning.classList.add('hidden');
+    } else {
+      elements.apiStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+      elements.apiStatusLabel.textContent = 'API 키 설정 필요';
+      elements.bannerApiKeyWarning.classList.remove('hidden');
+    }
   }
 
-  // 2. 탭 전환
+  // 3. 탭 전환
   function switchTab(tab) {
     state.currentTab = tab;
-    if (tab === 'discover') {
-      elements.viewDiscover.classList.remove('hidden');
+    if (tab === 'analysis') {
+      elements.viewAnalysis.classList.remove('hidden');
       elements.viewArchive.classList.add('hidden');
       
-      elements.navDiscover.classList.add('text-burgundy', 'border-b-2', 'border-burgundy');
+      elements.navAnalysis.classList.add('text-burgundy', 'border-b-2', 'border-burgundy');
       elements.navArchive.classList.remove('text-burgundy', 'border-b-2', 'border-burgundy');
-      
-      elements.navDiscoverMobile?.classList.add('text-burgundy');
+      elements.navAnalysisMobile?.classList.add('text-burgundy');
       elements.navArchiveMobile?.classList.remove('text-burgundy');
     } else {
-      elements.viewDiscover.classList.add('hidden');
+      elements.viewAnalysis.classList.add('hidden');
       elements.viewArchive.classList.remove('hidden');
       
       elements.navArchive.classList.add('text-burgundy', 'border-b-2', 'border-burgundy');
-      elements.navDiscover.classList.remove('text-burgundy', 'border-b-2', 'border-burgundy');
-
+      elements.navAnalysis.classList.remove('text-burgundy', 'border-b-2', 'border-burgundy');
       elements.navArchiveMobile?.classList.add('text-burgundy');
-      elements.navDiscoverMobile?.classList.remove('text-burgundy');
+      elements.navAnalysisMobile?.classList.remove('text-burgundy');
+
+      loadArchive();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     lucide.createIcons();
   }
 
-  // 3. 아카이브 렌더링
-  async function renderArchive() {
-    const artworks = await ArtStorage.searchArtworks(
-      state.searchKeyword,
-      state.ratingFilter,
-      state.sortBy
-    );
-    state.artworks = artworks;
+  // 4. 이미지 압축 처리 (Canvas 리사이징)
+  function optimizeImage(file, maxDimension = 1600, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
 
-    // 카운트 배지 갱신
-    if (elements.totalCountBadge) {
-      elements.totalCountBadge.textContent = `${artworks.length}개 작품`;
-    }
+          if (width > height) {
+            if (width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
 
-    if (artworks.length === 0) {
-      elements.archiveGrid.innerHTML = '';
-      elements.emptyState.classList.remove('hidden');
-      return;
-    }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
 
-    elements.emptyState.classList.add('hidden');
-    elements.archiveGrid.innerHTML = artworks.map(item => createArtworkCardHtml(item)).join('');
-    lucide.createIcons();
-
-    // 카드 클릭 이벤트 바인딩
-    document.querySelectorAll('.artwork-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = card.dataset.id;
-        openDetailModal(id);
-      });
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     });
   }
 
-  // 아카이브 카드 템플릿 (에디토리얼 도록 감성)
-  function createArtworkCardHtml(item) {
-    const stars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
-    const title = item.title || '제목 미상';
-    const artist = item.artist || '작가 미상';
-    const location = item.location ? `<span class="truncate">${escapeHtml(item.location)}</span>` : '';
-    const date = item.viewDate ? `<span>${escapeHtml(item.viewDate)}</span>` : '';
-
-    return `
-      <article class="artwork-card group cursor-pointer bg-white border border-[#E8E4DC] rounded-none overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col" data-id="${item.id}">
-        <!-- Image Frame -->
-        <div class="relative w-full aspect-[4/5] bg-[#F4F1EA] overflow-hidden flex items-center justify-center p-3">
-          <img 
-            src="${item.image}" 
-            alt="${escapeHtml(title)}" 
-            class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-102"
-            loading="lazy"
-          />
-          <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[11px] font-serif text-[#5C1D24] tracking-widest border border-[#E2DDD3]">
-            ${stars}
-          </div>
-        </div>
-
-        <!-- Info Area -->
-        <div class="p-5 flex-1 flex flex-col justify-between bg-white border-t border-[#EAE6DE]">
-          <div>
-            <div class="text-[11px] font-serif tracking-[0.16em] uppercase text-[#722F37] mb-1 font-semibold truncate">
-              ${escapeHtml(artist)}
-            </div>
-            <h3 class="font-serif-kr text-[17px] font-semibold text-[#1F1E1C] line-clamp-1 mb-2 tracking-tight group-hover:text-[#5C1D24] transition-colors">
-              ${escapeHtml(title)}
-            </h3>
-            ${item.notes ? `
-              <p class="text-[12.5px] text-[#696359] line-clamp-2 leading-relaxed font-sans mb-3 font-light">
-                ${escapeHtml(item.notes)}
-              </p>
-            ` : ''}
-          </div>
-
-          <div class="pt-3 border-t border-[#F2EFE8] flex items-center justify-between text-[11px] text-[#8E877C]">
-            <div class="flex items-center gap-1.5 truncate">
-              <i data-lucide="map-pin" class="w-3 h-3 text-[#B0A799] shrink-0"></i>
-              ${location || '장소 미입력'}
-            </div>
-            <div class="shrink-0 text-[10.5px]">
-              ${date}
-            </div>
-          </div>
-        </div>
-      </article>
-    `;
-  }
-
-  // 4. 작품 등록 모달 제어
-  function openCreateModal() {
-    resetCreateForm();
-    elements.modalCreate.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    lucide.createIcons();
-  }
-
-  function closeCreateModal() {
-    elements.modalCreate.classList.add('hidden');
-    document.body.style.overflow = '';
-  }
-
-  function resetCreateForm() {
-    elements.formCreate.reset();
-    state.newEntryImage = null;
-    state.newEntryRating = 0;
-    updateStarUI(elements.createStarContainer, 0);
-    elements.previewContainer.classList.add('hidden');
-    elements.dropZone.classList.remove('hidden');
-    elements.previewImage.src = '';
-    
-    // 오늘 날짜 기본 지정
-    const dateInput = document.getElementById('create-date');
-    if (dateInput) {
-      dateInput.value = new Date().toISOString().slice(0, 10);
-    }
-  }
-
-  // 5. 이미지 압축 및 로드 처리 (고용량 모바일 사진을 IndexedDB에 최적화된 1600px 품질 0.85로 리사이즈)
-  function handleImageUpload(file) {
-    if (!file || !file.type.startsWith('image/')) {
-      alert('올바른 이미지 파일을 선택해주세요.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1600;
-        const MAX_HEIGHT = 1600;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-        state.newEntryImage = optimizedBase64;
-
-        elements.previewImage.src = optimizedBase64;
-        elements.dropZone.classList.add('hidden');
-        elements.previewContainer.classList.remove('hidden');
-        lucide.createIcons();
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  // 6. 별점 UI 컴포넌트 헬퍼
+  // 5. 별점 UI 헬퍼
   function setupStarRating(container, onSelect) {
     container.innerHTML = [1, 2, 3, 4, 5].map(val => `
-      <button type="button" class="star-btn" data-value="${val}">
-        ★
-      </button>
+      <button type="button" class="star-btn" data-value="${val}">★</button>
     `).join('');
 
     container.querySelectorAll('.star-btn').forEach(btn => {
@@ -322,76 +228,536 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 7. 작품 상세 모달 열기
+  // 6. AI 작품 분석 실행
+  async function startAnalysis() {
+    // API 키 확인
+    if (!ArtAiDocent.hasApiKey()) {
+      elements.modalApiKey.classList.remove('hidden');
+      alert('AI 작품 분석을 위해 먼저 Gemini API 키를 등록해주세요.');
+      return;
+    }
+
+    // 메인 이미지 확인
+    if (!state.mainImageDataUrl) {
+      alert('분석할 작품 사진을 먼저 업로드해주세요.');
+      return;
+    }
+
+    // UI 전환: 입력창 숨김, 로딩창 노출
+    elements.analysisInputContainer.classList.add('hidden');
+    elements.analysisResultView.classList.add('hidden');
+    elements.analysisLoading.classList.remove('hidden');
+    window.scrollTo({ top: 100, behavior: 'smooth' });
+
+    // 감성적 프로그레스 메시지 로테이션
+    const loadingMessages = [
+      '화면의 붓질과 색채의 긴장감을 면밀히 관찰하고 있습니다...',
+      '구도와 공간의 배치, 시선의 흐름을 추적하고 있습니다...',
+      '관련된 미술사적 맥락과 미술사조들의 상호작용을 해석 중입니다...',
+      '시각적 유사성을 지닌 다른 거장들의 화풍과 대표작을 탐색하고 있습니다...',
+      '작품이 품은 다각적 의미와 도슨트 감상 가이드를 정리하고 있습니다...'
+    ];
+    let msgIndex = 0;
+    const msgTimer = setInterval(() => {
+      msgIndex = (msgIndex + 1) % loadingMessages.length;
+      elements.loadingStageText.textContent = loadingMessages[msgIndex];
+    }, 2800);
+
+    try {
+      const authorNotes = elements.analysisAuthorNotes.value.trim();
+      const report = await ArtAiDocent.analyzeArtwork({
+        mainImageDataUrl: state.mainImageDataUrl,
+        labelImageDataUrl: state.labelImageDataUrl,
+        authorNotes: authorNotes,
+        labelText: ''
+      });
+
+      state.currentAnalysisResult = report;
+      renderAnalysisResult(report);
+      
+      // 로딩 종료 및 결과 화면 표시
+      clearInterval(msgTimer);
+      elements.analysisLoading.classList.add('hidden');
+      elements.analysisResultView.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      lucide.createIcons();
+
+    } catch (err) {
+      clearInterval(msgTimer);
+      elements.analysisLoading.classList.add('hidden');
+      elements.analysisInputContainer.classList.remove('hidden');
+      console.error('분석 에러:', err);
+      alert(`AI 분석 오류: ${err.message}`);
+    }
+  }
+
+  // 7. 분석 결과 화면 렌더링
+  function renderAnalysisResult(report) {
+    // 메인 이미지 & 헤더
+    elements.resultDisplayImage.src = state.mainImageDataUrl;
+    elements.resultDisplayTitle.textContent = report.suggestedTitle || '제목 미상';
+    elements.resultDisplayArtist.textContent = report.suggestedArtist || '작가 미상';
+
+    // A. 첫인상
+    elements.resultFirstImpression.textContent = report.firstImpression || '첫인상 분석 정보가 없습니다.';
+
+    // B. 미술사적 맥락
+    const movements = report.artHistoricalContext?.movements || [];
+    elements.resultMovementsTags.innerHTML = movements.map(m => `
+      <span class="px-3 py-1 bg-[#F5EFE6] border border-[#E2DDD3] text-xs font-serifEn tracking-wider text-[#722F37] font-semibold">
+        # ${escapeHtml(m)}
+      </span>
+    `).join('');
+    elements.resultHistoricalNarrative.textContent = report.artHistoricalContext?.narrative || '';
+
+    // C. 조형적 특징
+    const fe = report.formalElements || {};
+    elements.resultFormalColor.textContent = fe.color || '분석 중';
+    elements.resultFormalComposition.textContent = fe.composition || '분석 중';
+    elements.resultFormalForm.textContent = fe.form || '분석 중';
+    elements.resultFormalTexture.textContent = fe.brushworkAndTexture || '분석 중';
+    elements.resultFormalLight.textContent = fe.lightAndShadow || '분석 중';
+
+    // D. 유사 작가 3인
+    const artists = report.similarArtists || [];
+    elements.resultSimilarArtistsContainer.innerHTML = artists.map(a => `
+      <div class="border border-[#EAE5DA] bg-[#FAF9F6] p-5 flex flex-col justify-between space-y-3">
+        <div>
+          <div class="text-[11px] font-serifEn tracking-widest text-[#722F37] uppercase font-bold">Similar Master</div>
+          <h4 class="font-serifKr text-base font-bold text-[#1B1A17] mt-0.5">${escapeHtml(a.name)}</h4>
+          <p class="text-xs text-[#8F887D] mt-1 font-light">${escapeHtml(a.artisticStyle)}</p>
+        </div>
+        <div class="space-y-2 text-xs text-[#3A352F] pt-2 border-t border-[#EFEBE4]">
+          <div><strong class="text-[#5C1D24]">시각적 유사점:</strong> ${escapeHtml(a.similarities)}</div>
+          <div><strong class="text-[#7A746B]">화풍의 차이점:</strong> ${escapeHtml(a.differences)}</div>
+          <div class="pt-1 text-[11px] text-[#8F887D] font-serif"><strong>대표 참고작:</strong> ${escapeHtml(a.keyWork)}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // E. 상징과 다각적 해석
+    const interp = report.interpretation || {};
+    elements.resultInterpSymbols.textContent = interp.symbolsAndThemes || '';
+    elements.resultInterpPerspectives.textContent = interp.multiplePerspectives || '';
+
+    // F. 작가 의도 vs AI 해석 비교
+    const comp = report.authorIntentVsAiPerspective || {};
+    if (comp.hasAuthorNote) {
+      elements.resultAuthorVsAi.innerHTML = `
+        <div class="space-y-2">
+          <div><strong class="text-[#5C1D24]">[작가가 밝힌 의도]</strong> ${escapeHtml(comp.authorIntent)}</div>
+          <div><strong class="text-[#1B263B]">[AI 시각 관찰 사실]</strong> ${escapeHtml(comp.aiObservation)}</div>
+          <div class="pt-2 border-t border-[#EAE5DA] font-medium text-[#1B1A17]">[종합 비교 분석]<br/>${escapeHtml(comp.comparativeAnalysis)}</div>
+        </div>
+      `;
+    } else {
+      elements.resultAuthorVsAi.innerHTML = `
+        <div class="text-[#6B655B] italic">
+          첨부된 작가 설명 자료가 없어 작가의 주관적 의도를 예단하지 않고, 작품 이미지에서 관찰되는 객관적인 시각 요소와 조형 질서에 집중하여 해석했습니다.<br/>
+          (작가 노트나 라벨 사진을 첨부하면 작가 의도와 AI의 시각적 긴장감을 대조 분석할 수 있습니다.)
+        </div>
+      `;
+    }
+
+    // G. 감상 가이드
+    const guide = report.appreciationGuide || {};
+    elements.resultGuideFocus.innerHTML = (guide.focusPoints || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    elements.resultGuideQuestions.innerHTML = (guide.reflectiveQuestions || []).map(q => `<li>${escapeHtml(q)}</li>`).join('');
+
+    // H. 하단 아카이브 저장 폼 기본값 세팅
+    elements.archiveSaveTitle.value = report.suggestedTitle || '';
+    elements.archiveSaveArtist.value = report.suggestedArtist || '';
+    state.saveRating = 5;
+    updateStarUI(elements.saveStarRating, 5);
+  }
+
+  // 8. 아카이브에 영구 저장하기
+  async function saveAnalysisToArchive() {
+    if (!state.mainImageDataUrl) return;
+
+    const artworkData = {
+      title: elements.archiveSaveTitle.value,
+      artist: elements.archiveSaveArtist.value,
+      location: elements.archiveSaveLocation.value,
+      viewDate: elements.archiveSaveDate.value,
+      rating: state.saveRating,
+      notes: elements.archiveSaveNotes.value,
+      image: state.mainImageDataUrl,
+      labelImage: state.labelImageDataUrl,
+      authorNotes: elements.analysisAuthorNotes.value,
+      analysisReport: state.currentAnalysisResult
+    };
+
+    try {
+      await ArtStorage.addArtwork(artworkData);
+      alert('나의 작품 보관함에 안전하게 저장되었습니다!');
+      switchTab('archive');
+    } catch (err) {
+      console.error('아카이브 저장 실패:', err);
+      alert('저장에 실패했습니다.');
+    }
+  }
+
+  // 9. 아카이브 목록 로드 및 렌더링
+  async function loadArchive() {
+    const artworks = await ArtStorage.searchArtworks(
+      state.searchKeyword,
+      state.ratingFilter,
+      state.sortBy
+    );
+    state.artworks = artworks;
+
+    if (elements.totalCountBadge) {
+      elements.totalCountBadge.textContent = `${artworks.length}개 작품`;
+    }
+
+    if (artworks.length === 0) {
+      elements.archiveGrid.innerHTML = '';
+      elements.emptyState.classList.remove('hidden');
+      return;
+    }
+
+    elements.emptyState.classList.add('hidden');
+    elements.archiveGrid.innerHTML = artworks.map(item => `
+      <article class="artwork-card group cursor-pointer bg-white border border-[#E8E4DC] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col" data-id="${item.id}">
+        <div class="relative w-full aspect-[4/5] bg-[#F4F1EA] overflow-hidden flex items-center justify-center p-3">
+          <img src="${item.image}" alt="${escapeHtml(item.title)}" class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+          <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[11px] font-serif text-[#5C1D24] tracking-widest border border-[#E2DDD3]">
+            ${'★'.repeat(item.rating || 0)}${'☆'.repeat(5 - (item.rating || 0))}
+          </div>
+          ${item.analysisReport ? `
+            <div class="absolute bottom-3 left-3 bg-[#5C1D24] text-white px-2 py-0.5 text-[10px] tracking-wider uppercase font-serif">
+              AI Docent Analyzed
+            </div>
+          ` : ''}
+        </div>
+        <div class="p-5 flex-1 flex flex-col justify-between bg-white border-t border-[#EAE6DE]">
+          <div>
+            <div class="text-[11px] font-serif tracking-[0.16em] uppercase text-[#722F37] mb-1 font-semibold truncate">
+              ${escapeHtml(item.artist)}
+            </div>
+            <h3 class="font-serifKr text-base font-semibold text-[#1F1E1C] line-clamp-1 mb-2 group-hover:text-[#5C1D24] transition-colors">
+              ${escapeHtml(item.title)}
+            </h3>
+            ${item.notes ? `
+              <p class="text-xs text-[#696359] line-clamp-2 leading-relaxed font-sans mb-3 font-light">
+                ${escapeHtml(item.notes)}
+              </p>
+            ` : (item.analysisReport?.firstImpression ? `
+              <p class="text-xs text-[#696359] line-clamp-2 leading-relaxed font-serifKr mb-3 font-light">
+                ${escapeHtml(item.analysisReport.firstImpression)}
+              </p>
+            ` : '')}
+          </div>
+          <div class="pt-3 border-t border-[#F2EFE8] flex items-center justify-between text-[11px] text-[#8E877C]">
+            <div class="truncate">${escapeHtml(item.location) || '장소 미입력'}</div>
+            <div class="shrink-0 text-[10.5px]">${escapeHtml(item.viewDate) || ''}</div>
+          </div>
+        </div>
+      </article>
+    `).join('');
+
+    lucide.createIcons();
+
+    // 카드 클릭 시 상세 모달 오픈
+    document.querySelectorAll('.artwork-card').forEach(card => {
+      card.addEventListener('click', () => {
+        openDetailModal(card.dataset.id);
+      });
+    });
+  }
+
+  // 10. 아카이브 상세 모달
   async function openDetailModal(id) {
     const artwork = await ArtStorage.getArtworkById(id);
     if (!artwork) return;
     state.selectedArtwork = artwork;
 
-    elements.detailImage.src = artwork.image;
-    elements.detailTitle.textContent = artwork.title || '제목 미상';
-    elements.detailArtist.textContent = artwork.artist || '작가 미상';
-    elements.detailLocation.textContent = artwork.location || '기록된 관람 장소 없음';
-    elements.detailDate.textContent = artwork.viewDate || '날짜 미상';
-    
+    const r = artwork.analysisReport;
     const stars = '★'.repeat(artwork.rating || 0) + '☆'.repeat(5 - (artwork.rating || 0));
-    elements.detailRating.textContent = stars;
-    
-    elements.detailNotes.textContent = artwork.notes || '기록된 감상 메모가 없습니다. 훗날 다시 이 작품을 마주했을 때 전해지는 울림을 기록해보세요.';
+
+    let reportSection = '';
+    if (r) {
+      reportSection = `
+        <div class="border-t-2 border-[#5C1D24] pt-6 space-y-6">
+          <div class="text-xs font-serifEn tracking-[0.2em] uppercase text-[#722F37] font-bold">
+            Curatorial AI Docent Report
+          </div>
+
+          <!-- First Impression -->
+          <div class="space-y-1">
+            <h4 class="font-serifKr text-sm font-bold text-[#1B1A17]">[ 작품의 첫인상 ]</h4>
+            <div class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF7F0] p-4 whitespace-pre-line border-l-2 border-[#5C1D24]">
+              ${escapeHtml(r.firstImpression)}
+            </div>
+          </div>
+
+          <!-- Historical Context -->
+          <div class="space-y-1">
+            <h4 class="font-serifKr text-sm font-bold text-[#1B1A17]">[ 미술사적 맥락 및 사조 상호작용 ]</h4>
+            <div class="text-xs text-[#333] leading-relaxed bg-white border border-[#E8E3D7] p-4 whitespace-pre-line">
+              ${escapeHtml(r.artHistoricalContext?.narrative || '')}
+            </div>
+          </div>
+
+          <!-- Similar Artists -->
+          ${r.similarArtists?.length ? `
+            <div class="space-y-1">
+              <h4 class="font-serifKr text-sm font-bold text-[#1B1A17]">[ 유사 화풍의 작가 3인 ]</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                ${r.similarArtists.map(a => `
+                  <div class="border border-[#E8E3D7] bg-white p-3 space-y-1">
+                    <strong class="text-[#722F37]">${escapeHtml(a.name)}</strong>
+                    <div class="text-[11px] text-[#666]">${escapeHtml(a.artisticStyle)}</div>
+                    <div class="text-[11px] text-[#333] pt-1 border-t border-[#F2EFE8]">유사점: ${escapeHtml(a.similarities)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Interpretation & Guide -->
+          <div class="space-y-1">
+            <h4 class="font-serifKr text-sm font-bold text-[#1B1A17]">[ 작품의 상징과 해석 ]</h4>
+            <p class="text-xs text-[#333] bg-white border border-[#E8E3D7] p-3 leading-relaxed">
+              ${escapeHtml(r.interpretation?.symbolsAndThemes || '')}
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    elements.detailBodyContainer.innerHTML = `
+      <div class="bg-[#F2ECE1] border border-[#E2DDD3] p-4 flex items-center justify-center">
+        <img src="${artwork.image}" alt="${escapeHtml(artwork.title)}" class="max-h-[480px] w-auto max-w-full object-contain mx-auto shadow-md" />
+      </div>
+
+      <div class="border-b border-[#E8E3D7] pb-4">
+        <div class="font-serifEn text-sm tracking-[0.2em] uppercase text-[#722F37] font-semibold mb-1">
+          ${escapeHtml(artwork.artist)}
+        </div>
+        <h1 class="font-serifKr text-2xl font-bold text-[#1B1A17]">
+          ${escapeHtml(artwork.title)}
+        </h1>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-white border border-[#E8E3D7] p-4">
+        <div><span class="text-[#8F887D] block mb-0.5">관람 장소</span><strong>${escapeHtml(artwork.location) || '기록 없음'}</strong></div>
+        <div><span class="text-[#8F887D] block mb-0.5">관람 일자</span><strong>${escapeHtml(artwork.viewDate) || '기록 없음'}</strong></div>
+        <div><span class="text-[#8F887D] block mb-0.5">개인 평점</span><span class="font-serif text-[#5C1D24] tracking-widest text-sm">${stars}</span></div>
+      </div>
+
+      ${artwork.notes ? `
+        <div class="space-y-1">
+          <div class="text-[11px] font-serifEn tracking-widest text-[#8F887D] uppercase font-semibold">My Personal Reflection</div>
+          <div class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF7F0] p-4 border-l-2 border-[#5C1D24]">
+            ${escapeHtml(artwork.notes)}
+          </div>
+        </div>
+      ` : ''}
+
+      ${reportSection}
+    `;
 
     elements.modalDetail.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     lucide.createIcons();
   }
 
-  function closeDetailModal() {
-    elements.modalDetail.classList.add('hidden');
-    document.body.style.overflow = '';
-  }
-
-  // 8. 작품 수정 모달 열기
-  function openEditModal() {
-    if (!state.selectedArtwork) return;
-    const a = state.selectedArtwork;
-    elements.editTitle.value = a.title === '제목 미상 (Untitled)' ? '' : a.title;
-    elements.editArtist.value = a.artist === '작가 미상 (Unknown)' ? '' : a.artist;
-    elements.editLocation.value = a.location || '';
-    elements.editDate.value = a.viewDate || '';
-    elements.editNotes.value = a.notes || '';
-    state.editRating = a.rating || 0;
-    updateStarUI(elements.editStarContainer, state.editRating);
-
-    elements.modalEdit.classList.remove('hidden');
-    lucide.createIcons();
-  }
-
-  function closeEditModal() {
-    elements.modalEdit.classList.add('hidden');
-  }
-
-  // 9. 이벤트 리스너 바인딩
+  // 11. 이벤트 리스너 설정
   function setupEventListeners() {
     // 탭 전환
-    elements.navDiscover.addEventListener('click', () => switchTab('discover'));
+    elements.navAnalysis.addEventListener('click', () => switchTab('analysis'));
     elements.navArchive.addEventListener('click', () => switchTab('archive'));
-    elements.navDiscoverMobile?.addEventListener('click', () => switchTab('discover'));
+    elements.navAnalysisMobile?.addEventListener('click', () => switchTab('analysis'));
     elements.navArchiveMobile?.addEventListener('click', () => switchTab('archive'));
 
-    // Discover 페이지 내 바로가기 버튼들
-    const heroExploreBtn = document.getElementById('btn-hero-explore');
-    if (heroExploreBtn) {
-      heroExploreBtn.addEventListener('click', () => switchTab('archive'));
-    }
+    // API Key 모달 제어
+    elements.btnOpenApiKey.addEventListener('click', () => {
+      elements.inputGeminiApiKey.value = ArtAiDocent.getApiKey();
+      elements.modalApiKey.classList.remove('hidden');
+    });
+    elements.btnCloseApiKey.addEventListener('click', () => {
+      elements.modalApiKey.classList.add('hidden');
+    });
+    elements.btnSaveApiKey.addEventListener('click', () => {
+      const val = elements.inputGeminiApiKey.value.trim();
+      if (!val) {
+        alert('API 키를 입력해주세요.');
+        return;
+      }
+      ArtAiDocent.setApiKey(val);
+      updateApiKeyStatusUI();
+      elements.modalApiKey.classList.add('hidden');
+      alert('Gemini API 키가 저장되었습니다.');
+    });
+    elements.btnDeleteApiKey.addEventListener('click', () => {
+      if (confirm('저장된 API 키를 삭제하시겠습니까?')) {
+        ArtAiDocent.setApiKey('');
+        elements.inputGeminiApiKey.value = '';
+        updateApiKeyStatusUI();
+        elements.modalApiKey.classList.add('hidden');
+      }
+    });
 
-    // 모달 열기/닫기
-    elements.btnOpenCreate.addEventListener('click', openCreateModal);
-    elements.btnOpenCreateMobile?.addEventListener('click', openCreateModal);
-    elements.btnCloseCreate.addEventListener('click', closeCreateModal);
-    elements.btnCloseDetail.addEventListener('click', closeDetailModal);
-    elements.btnCloseEdit.addEventListener('click', closeEditModal);
+    // 메인 이미지 업로드 (파일 선택 및 드래그앤드롭)
+    elements.analysisDropzone.addEventListener('click', () => elements.analysisMainImageInput.click());
+    elements.analysisMainImageInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const optimized = await optimizeImage(e.target.files[0]);
+        state.mainImageDataUrl = optimized;
+        elements.analysisMainPreviewImg.src = optimized;
+        elements.analysisDropzone.classList.add('hidden');
+        elements.analysisMainPreviewBox.classList.remove('hidden');
+      }
+    });
 
-    // 모달 배경 클릭 시 닫기
-    [elements.modalCreate, elements.modalDetail, elements.modalEdit].forEach(modal => {
+    elements.analysisDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      elements.analysisDropzone.classList.add('border-[#5C1D24]', 'bg-[#F2ECE5]');
+    });
+    elements.analysisDropzone.addEventListener('dragleave', () => {
+      elements.analysisDropzone.classList.remove('border-[#5C1D24]', 'bg-[#F2ECE5]');
+    });
+    elements.analysisDropzone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      elements.analysisDropzone.classList.remove('border-[#5C1D24]', 'bg-[#F2ECE5]');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const optimized = await optimizeImage(e.dataTransfer.files[0]);
+        state.mainImageDataUrl = optimized;
+        elements.analysisMainPreviewImg.src = optimized;
+        elements.analysisDropzone.classList.add('hidden');
+        elements.analysisMainPreviewBox.classList.remove('hidden');
+      }
+    });
+
+    elements.btnRemoveMainImg.addEventListener('click', () => {
+      state.mainImageDataUrl = null;
+      elements.analysisMainPreviewImg.src = '';
+      elements.analysisMainPreviewBox.classList.add('hidden');
+      elements.analysisDropzone.classList.remove('hidden');
+    });
+
+    // 라벨 이미지 첨부
+    elements.btnTriggerLabelUpload.addEventListener('click', () => elements.analysisLabelImageInput.click());
+    elements.analysisLabelImageInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const opt = await optimizeImage(e.target.files[0], 1200, 0.8);
+        state.labelImageDataUrl = opt;
+        elements.labelImageStatus.textContent = e.target.files[0].name;
+        elements.btnRemoveLabelImg.classList.remove('hidden');
+      }
+    });
+    elements.btnRemoveLabelImg.addEventListener('click', () => {
+      state.labelImageDataUrl = null;
+      elements.analysisLabelImageInput.value = '';
+      elements.labelImageStatus.textContent = '첨부된 라벨 없음';
+      elements.btnRemoveLabelImg.classList.add('hidden');
+    });
+
+    // [AI 도슨트 심층 분석 시작] 버튼
+    elements.btnStartAnalysis.addEventListener('click', startAnalysis);
+
+    // [다른 작품 분석하기] 리셋 버튼
+    elements.btnResultReset.addEventListener('click', () => {
+      if (confirm('현재 분석 화면을 닫고 새로운 작품을 분석하시겠습니까?')) {
+        state.mainImageDataUrl = null;
+        state.labelImageDataUrl = null;
+        state.currentAnalysisResult = null;
+        elements.analysisAuthorNotes.value = '';
+        elements.analysisMainPreviewImg.src = '';
+        elements.analysisMainPreviewBox.classList.add('hidden');
+        elements.analysisDropzone.classList.remove('hidden');
+        elements.analysisResultView.classList.add('hidden');
+        elements.analysisInputContainer.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+
+    // 분석 결과 화면에서 PDF 출력
+    elements.btnResultExportPdf.addEventListener('click', async () => {
+      if (!state.currentAnalysisResult || !state.mainImageDataUrl) return;
+      const fakeArtwork = {
+        title: elements.archiveSaveTitle.value || state.currentAnalysisResult.suggestedTitle,
+        artist: elements.archiveSaveArtist.value || state.currentAnalysisResult.suggestedArtist,
+        location: elements.archiveSaveLocation.value,
+        viewDate: elements.archiveSaveDate.value,
+        rating: state.saveRating,
+        notes: elements.archiveSaveNotes.value,
+        image: state.mainImageDataUrl,
+        analysisReport: state.currentAnalysisResult
+      };
+      await ArtPdfExporter.exportArtworkCatalog(fakeArtwork);
+    });
+
+    // [아카이브에 저장하기] 버튼
+    elements.btnConfirmSaveArchive.addEventListener('click', saveAnalysisToArchive);
+
+    // 아카이브 상세 모달 닫기
+    elements.btnCloseDetail.addEventListener('click', () => {
+      elements.modalDetail.classList.add('hidden');
+      document.body.style.overflow = '';
+    });
+
+    // 상세 모달에서 PDF 출력
+    elements.btnDetailExportPdf.addEventListener('click', async () => {
+      if (state.selectedArtwork) {
+        await ArtPdfExporter.exportArtworkCatalog(state.selectedArtwork);
+      }
+    });
+
+    // 상세 모달에서 삭제
+    elements.btnDetailDelete.addEventListener('click', async () => {
+      if (!state.selectedArtwork) return;
+      if (confirm('이 작품과 분석 리포트를 보관함에서 삭제하시겠습니까?')) {
+        await ArtStorage.deleteArtwork(state.selectedArtwork.id);
+        elements.modalDetail.classList.add('hidden');
+        document.body.style.overflow = '';
+        await loadArchive();
+      }
+    });
+
+    // 상세 모달에서 수정 (간단 프롬프트 수정)
+    elements.btnDetailEdit.addEventListener('click', async () => {
+      if (!state.selectedArtwork) return;
+      const newTitle = prompt('작품명을 입력하세요:', state.selectedArtwork.title);
+      if (newTitle === null) return;
+      const newArtist = prompt('작가명을 입력하세요:', state.selectedArtwork.artist);
+      if (newArtist === null) return;
+      const newNotes = prompt('개인 감상 메모를 수정하세요:', state.selectedArtwork.notes);
+      if (newNotes === null) return;
+
+      await ArtStorage.updateArtwork(state.selectedArtwork.id, {
+        title: newTitle,
+        artist: newArtist,
+        notes: newNotes
+      });
+      openDetailModal(state.selectedArtwork.id);
+      await loadArchive();
+    });
+
+    // 검색 및 필터
+    let timer;
+    elements.searchInput.addEventListener('input', (e) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        state.searchKeyword = e.target.value;
+        loadArchive();
+      }, 250);
+    });
+
+    elements.ratingFilterSelect.addEventListener('change', (e) => {
+      state.ratingFilter = Number(e.target.value);
+      loadArchive();
+    });
+
+    elements.sortSelect.addEventListener('change', (e) => {
+      state.sortBy = e.target.value;
+      loadArchive();
+    });
+
+    // 배경 클릭 시 모달 닫기
+    [elements.modalApiKey, elements.modalDetail].forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.classList.add('hidden');
@@ -399,158 +765,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
-
-    // 별점 바인딩
-    setupStarRating(elements.createStarContainer, (r) => { state.newEntryRating = r; });
-    setupStarRating(elements.editStarContainer, (r) => { state.editRating = r; });
-
-    // 이미지 업로드 (파일 선택 및 드래그앤드롭)
-    elements.dropZone.addEventListener('click', () => elements.inputImage.click());
-    elements.inputImage.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleImageUpload(e.target.files[0]);
-      }
-    });
-
-    elements.dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      elements.dropZone.classList.add('border-burgundy', 'bg-[#F2ECE5]');
-    });
-    elements.dropZone.addEventListener('dragleave', () => {
-      elements.dropZone.classList.remove('border-burgundy', 'bg-[#F2ECE5]');
-    });
-    elements.dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      elements.dropZone.classList.remove('border-burgundy', 'bg-[#F2ECE5]');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleImageUpload(e.dataTransfer.files[0]);
-      }
-    });
-
-    elements.btnRemoveImage.addEventListener('click', () => {
-      state.newEntryImage = null;
-      elements.previewImage.src = '';
-      elements.previewContainer.classList.add('hidden');
-      elements.dropZone.classList.remove('hidden');
-    });
-
-    // 작품 등록 제출
-    elements.formCreate.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      if (!state.newEntryImage) {
-        alert('작품 사진을 등록해주세요.');
-        return;
-      }
-
-      const titleInput = document.getElementById('create-title').value;
-      const artistInput = document.getElementById('create-artist').value;
-      const locationInput = document.getElementById('create-location').value;
-      const dateInput = document.getElementById('create-date').value;
-      const notesInput = document.getElementById('create-notes').value;
-
-      const newEntry = {
-        title: titleInput,
-        artist: artistInput,
-        location: locationInput,
-        viewDate: dateInput,
-        rating: state.newEntryRating,
-        notes: notesInput,
-        image: state.newEntryImage
-      };
-
-      try {
-        await ArtStorage.addArtwork(newEntry);
-        closeCreateModal();
-        switchTab('archive');
-        await renderArchive();
-      } catch (err) {
-        console.error('작품 저장 실패:', err);
-        alert('작품 저장에 실패했습니다. 다시 시도해주세요.');
-      }
-    });
-
-    // 작품 수정 제출
-    elements.formEdit.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!state.selectedArtwork) return;
-
-      const updated = {
-        title: elements.editTitle.value,
-        artist: elements.editArtist.value,
-        location: elements.editLocation.value,
-        viewDate: elements.editDate.value,
-        notes: elements.editNotes.value,
-        rating: state.editRating
-      };
-
-      try {
-        const refreshed = await ArtStorage.updateArtwork(state.selectedArtwork.id, updated);
-        state.selectedArtwork = refreshed;
-        closeEditModal();
-        openDetailModal(refreshed.id);
-        await renderArchive();
-      } catch (err) {
-        console.error('수정 실패:', err);
-        alert('수정에 실패했습니다.');
-      }
-    });
-
-    // 작품 수정 버튼
-    elements.btnEditArtwork.addEventListener('click', openEditModal);
-
-    // 작품 삭제 버튼
-    elements.btnDeleteArtwork.addEventListener('click', async () => {
-      if (!state.selectedArtwork) return;
-      if (confirm('이 작품 기록을 아카이브에서 정말 삭제하시겠습니까?')) {
-        await ArtStorage.deleteArtwork(state.selectedArtwork.id);
-        closeDetailModal();
-        await renderArchive();
-      }
-    });
-
-    // PDF 내보내기 버튼
-    elements.btnExportPdf.addEventListener('click', async () => {
-      if (!state.selectedArtwork) return;
-      const btn = elements.btnExportPdf;
-      const originalText = btn.innerHTML;
-      btn.innerHTML = `<span class="inline-block animate-spin mr-1">⌛</span> 생성 중...`;
-      btn.disabled = true;
-
-      try {
-        await ArtPdfExporter.exportArtworkCatalog(state.selectedArtwork);
-      } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        lucide.createIcons();
-      }
-    });
-
-    // 검색 및 필터 이벤트
-    let debounceTimer;
-    elements.searchInput.addEventListener('input', (e) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        state.searchKeyword = e.target.value;
-        renderArchive();
-      }, 250);
-    });
-
-    elements.ratingFilterSelect.addEventListener('change', (e) => {
-      state.ratingFilter = Number(e.target.value);
-      renderArchive();
-    });
-
-    elements.sortSelect.addEventListener('change', (e) => {
-      state.sortBy = e.target.value;
-      renderArchive();
-    });
   }
 
-  // HTML escape 유틸리티
+  // HTML escape
   function escapeHtml(str) {
     if (!str) return '';
-    return str
+    return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -558,16 +778,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, '&#039;');
   }
 
-  // PWA Service Worker 등록 (지원 브라우저인 경우)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch((err) => {
-        // file:// 프로토콜 등에서는 자동 스킵
-        console.log('SW registration note:', err.message);
-      });
-    });
-  }
-
-  // 실행
-  initApp();
+  init();
 });
