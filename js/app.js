@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCloseApiKey: document.getElementById('btn-close-api-key'),
     btnCancelApiKey: document.getElementById('btn-cancel-api-key'),
     inputGeminiApiKey: document.getElementById('input-gemini-api-key'),
+    selectGeminiModel: document.getElementById('select-gemini-model'),
+    inputCustomGeminiModel: document.getElementById('input-custom-gemini-model'),
     btnSaveApiKey: document.getElementById('btn-save-api-key'),
     btnDeleteApiKey: document.getElementById('btn-delete-api-key'),
     apiStatusDot: document.getElementById('api-status-dot'),
@@ -671,9 +673,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     // API Key 모달 열기 (PC 상단, 모바일 하단, 배너 등 모든 진입로 완벽 바인딩)
     const openApiKeyModal = () => {
       elements.inputGeminiApiKey.value = ArtAiDocent.getApiKey();
+      
+      // 현재 저장된 모델 불러오기
+      const currentModel = ArtAiDocent.getSelectedModel();
+      const standardModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      
+      if (standardModels.includes(currentModel)) {
+        elements.selectGeminiModel.value = currentModel;
+        elements.inputCustomGeminiModel.classList.add('hidden');
+        elements.inputCustomGeminiModel.value = '';
+      } else {
+        elements.selectGeminiModel.value = 'custom';
+        elements.inputCustomGeminiModel.classList.remove('hidden');
+        elements.inputCustomGeminiModel.value = currentModel;
+      }
+
       elements.modalApiKey.classList.remove('hidden');
       elements.modalErrorHelp.classList.add('hidden');
     };
+
+    // 모델 셀렉트 변경 시 직접 입력 필드 토글
+    elements.selectGeminiModel.addEventListener('change', (e) => {
+      if (e.target.value === 'custom') {
+        elements.inputCustomGeminiModel.classList.remove('hidden');
+        elements.inputCustomGeminiModel.focus();
+      } else {
+        elements.inputCustomGeminiModel.classList.add('hidden');
+      }
+    });
 
     elements.btnOpenApiKey.addEventListener('click', openApiKeyModal);
     elements.btnOpenApiKeyMobile?.addEventListener('click', openApiKeyModal);
@@ -687,17 +714,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.btnCloseApiKey.addEventListener('click', closeApiKeyModal);
     elements.btnCancelApiKey.addEventListener('click', closeApiKeyModal);
 
-    // API Key 저장
+    // API Key 및 모델명 저장
     elements.btnSaveApiKey.addEventListener('click', () => {
       const val = elements.inputGeminiApiKey.value.trim();
       if (!val) {
         alert('API 키를 입력해주세요.');
         return;
       }
+
+      // 모델명 확인 및 저장
+      let selectedModel = elements.selectGeminiModel.value;
+      if (selectedModel === 'custom') {
+        const customModel = elements.inputCustomGeminiModel.value.trim();
+        if (customModel) {
+          selectedModel = customModel;
+        } else {
+          selectedModel = 'gemini-3.8-flash';
+        }
+      }
+
       ArtAiDocent.setApiKey(val);
+      ArtAiDocent.setSelectedModel(selectedModel);
+
       updateApiKeyStatusUI();
       closeApiKeyModal();
-      alert('Gemini API 키가 안전하게 등록되었습니다!');
+      alert(`Gemini API 키와 모델([${selectedModel}])이 안전하게 등록되었습니다!`);
     });
 
     // API Key 삭제

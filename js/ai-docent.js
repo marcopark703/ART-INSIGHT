@@ -5,6 +5,8 @@
 
 const ArtAiDocent = {
   STORAGE_KEY: 'art_insight_gemini_api_key',
+  MODEL_STORAGE_KEY: 'art_insight_gemini_model',
+  DEFAULT_MODEL: 'gemini-3.8-flash',
 
   // API Key 가져오기
   getApiKey() {
@@ -26,6 +28,20 @@ const ArtAiDocent = {
     return Boolean(key && key.length > 15);
   },
 
+  // 설정된 모델명 가져오기 (기본값: gemini-3.8-flash)
+  getSelectedModel() {
+    return (localStorage.getItem(this.MODEL_STORAGE_KEY) || this.DEFAULT_MODEL).trim();
+  },
+
+  // 모델명 저장하기
+  setSelectedModel(modelName) {
+    if (!modelName || !modelName.trim()) {
+      localStorage.setItem(this.MODEL_STORAGE_KEY, this.DEFAULT_MODEL);
+    } else {
+      localStorage.setItem(this.MODEL_STORAGE_KEY, modelName.trim());
+    }
+  },
+
   // Base64 데이터에서 MIME 타입과 순수 Base64 분리
   parseBase64(dataUrl) {
     if (!dataUrl || typeof dataUrl !== 'string') {
@@ -43,17 +59,20 @@ const ArtAiDocent = {
 
   // 사용 가능한 Gemini 모델을 API에서 동적으로 감지 (ListModels)
   async discoverBestModel(apiKey) {
+    const userSelected = this.getSelectedModel();
     const preferredOrder = [
+      userSelected,
+      'gemini-3.8-flash',
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-1.5-flash-latest',
       'gemini-1.5-flash-002',
       'gemini-1.5-flash-8b',
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-pro',
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-pro-002'
+      'gemini-1.5-pro'
     ];
+    // 중복 제거 및 유효 모델 필터
+    const uniquePreferred = [...new Set(preferredOrder.filter(Boolean))];
 
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -63,27 +82,39 @@ const ArtAiDocent = {
           .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
           .map(m => m.name.replace(/^models\//, ''));
 
+        // 사용자가 명시적으로 지정한 모델이 API 지원 목록에 있다면 우선 반환
+        if (available.includes(userSelected)) {
+          console.log(`[ART INSIGHT] 사용자 지정 모델 일치: ${userSelected}`);
+          return userSelected;
+        }
+
         // 선호 순서대로 매칭되는 첫 번째 모델 반환
-        for (const pref of preferredOrder) {
+        for (const pref of uniquePreferred) {
           if (available.includes(pref)) {
             console.log(`[ART INSIGHT] 동적 감지된 최적 모델: ${pref}`);
             return pref;
           }
         }
 
-        // 선호 목록에 없더라도 gemini가 들어간 사용 가능 모델 선택
-        const anyGemini = available.find(m => m.includes('gemini'));
+        // flash 계열 모델 우선 탐색
+        const flashModel = available.find(m => m.includes('flash') && !m.includes('exp'));
+        if (flashModel) {
+          console.log(`[ART INSIGHT] 감지된 Flash 모델: ${flashModel}`);
+          return flashModel;
+        }
+
+        // 그 외 사용 가능한 gemini 모델
+        const anyGemini = available.find(m => m.includes('gemini') && !m.includes('exp'));
         if (anyGemini) {
           console.log(`[ART INSIGHT] 감지된 사용 가능 모델: ${anyGemini}`);
           return anyGemini;
         }
       }
     } catch (e) {
-      console.warn('ListModels 동적 감지 실패, 기본 폴백 모델을 시도합니다.', e);
+      console.warn('ListModels 동적 감지 실패, 설정된 모델을 우선 시도합니다.', e);
     }
 
-    // fallback 기본값
-    return 'gemini-2.0-flash';
+    return userSelected || this.DEFAULT_MODEL;
   },
 
   // 심층 도슨트 분석 프롬프트 생성
@@ -174,7 +205,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
 `;
   },
 
-  // 메인 분석 실행 함수 (동적 모델 감지 + 다중 Fallback 체인)
+  // 메인 분석 실행 함수 (gemini-3.8-flash 우선 + v1/v1beta 호환성 지원)
   async analyzeArtwork({ mainImageDataUrl, labelImageDataUrl = null, authorNotes = '', labelText = '' }) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -224,30 +255,38 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
       }
     };
 
-    // 1단계: API 키에 권한이 있는 최적 모델 동적 탐색
+    // 1단계: 설정된 모델 및 API 키에 권한이 있는 최적 모델 탐색
+    const userSelected = this.getSelectedModel();
     const discoveredModel = await this.discoverBestModel(apiKey);
+    
+    // 지원 종료된 gemini-2.0-flash-exp는 완전히 배제하고, gemini-3.8-flash 우선 적용
     const candidatesToTry = [
+      userSelected,
       discoveredModel,
+      'gemini-3.8-flash',
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
-      'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
-      'gemini-1.5-flash-8b',
-      'gemini-2.0-flash-exp'
-    ];
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-8b'
+    ].filter(m => m && !m.includes('exp'));
+
     // 중복 제거
     const uniqueModels = [...new Set(candidatesToTry)];
 
     let lastErrorMessage = '';
 
     for (const model of uniqueModels) {
-      // v1beta 및 v1 둘 다 호환 시도
-      const urlsToTry = [
+      // v1 및 v1beta 둘 다 호환 시도
+      const endpoints = [
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
       ];
 
-      for (const endpoint of urlsToTry) {
+      for (const endpoint of endpoints) {
         try {
+          console.log(`[ART INSIGHT] Gemini 모델 호출 시도: ${model} (${endpoint.includes('v1beta') ? 'v1beta' : 'v1'})`);
+          
           const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -268,7 +307,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
             }
 
             lastErrorMessage = errMsg;
-            continue; // 다음 URL/모델 시도
+            continue; // 다음 엔드포인트/모델 시도
           }
 
           const resultJson = await response.json();
@@ -285,7 +324,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
             cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
           }
 
-          console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석을 수신했습니다.`);
+          console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석 리포트를 수신했습니다.`);
           return JSON.parse(cleaned);
 
         } catch (fetchErr) {
@@ -297,7 +336,7 @@ ${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cl
       }
     }
 
-    throw new Error(`AI 모델 응답 오류: ${lastErrorMessage || '연결 가능한 모델을 찾을 수 없습니다.'}`);
+    throw new Error(`AI 모델 응답 오류: ${lastErrorMessage || '호환 가능한 Flash 모델을 찾을 수 없습니다.'}`);
   },
 
   // [체험용 샘플 도슨트 데이터]
