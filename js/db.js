@@ -59,6 +59,9 @@ const ArtStorage = {
     if (updatePayload.artist !== undefined) {
       updatePayload.artist = updatePayload.artist.trim() || '작가 미상 (Unknown)';
     }
+    if (updatePayload.rating !== undefined) {
+      updatePayload.rating = Number(updatePayload.rating) || 0;
+    }
     await db.artworks.update(Number(id), updatePayload);
     return await this.getArtworkById(id);
   },
@@ -85,7 +88,7 @@ const ArtStorage = {
         let reportMatch = false;
         if (item.analysisReport) {
           const r = item.analysisReport;
-          const impression = r.firstImpression || '';
+          const impression = r.firstImpression || r.docentVoice || '';
           const movements = r.artHistoricalContext?.movements?.join(' ') || '';
           const narrative = r.artHistoricalContext?.narrative || '';
           reportMatch = impression.toLowerCase().includes(q) || 
@@ -112,6 +115,44 @@ const ArtStorage = {
     }
 
     return collection;
+  },
+
+  // 아카이브 전체 데이터 백업 파일 내보내기 (JSON 다운로드)
+  async exportBackup() {
+    const all = await db.artworks.toArray();
+    const dataStr = JSON.stringify({
+      version: 'ART_INSIGHT_V3',
+      exportedAt: new Date().toISOString(),
+      artworksCount: all.length,
+      artworks: all
+    }, null, 2);
+
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `art_insight_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return all.length;
+  },
+
+  // 백업 파일 불러오기 (JSON 복원)
+  async importBackup(jsonString) {
+    const data = JSON.parse(jsonString);
+    if (!data || !Array.isArray(data.artworks)) {
+      throw new Error('올바른 ART INSIGHT 백업 JSON 파일 형식이 아닙니다.');
+    }
+
+    let addedCount = 0;
+    for (const item of data.artworks) {
+      const { id, ...cleanItem } = item;
+      await db.artworks.add(cleanItem);
+      addedCount++;
+    }
+    return addedCount;
   }
 };
 

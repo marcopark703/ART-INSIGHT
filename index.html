@@ -86,7 +86,7 @@
             ART INSIGHT
           </span>
           <span class="text-[9px] bg-[#5C1D24] text-white px-1.5 py-0.5 ml-2 font-mono font-bold tracking-wider rounded-sm shadow-xs">
-            v3.8.2
+            v3.8.7
           </span>
           <span class="hidden lg:inline-block text-[11px] font-serifEn tracking-[0.14em] text-[#8F887D] uppercase ml-3 border-l border-[#D8D2C4] pl-3">
             See beyond the canvas
@@ -329,165 +329,176 @@
         </div>
       </div>
 
-      <!-- 1-C. EDITORIAL DOCENT ANALYSIS REPORT RESULT -->
-      <div id="analysis-result-view" class="hidden space-y-10 sm:space-y-12 max-w-4xl mx-auto">
+      <!-- 1-C. QUICK DOCENT & EDITORIAL RESULT VIEW (현장 감상 최적화 퀵 도슨트) -->
+      <div id="analysis-result-view" class="hidden space-y-6 sm:space-y-8 max-w-3xl mx-auto">
         
-        <!-- Action Bar (Top) -->
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E3D7] pb-4">
-          <div class="text-[11px] font-serifEn tracking-[0.25em] uppercase text-[#722F37] font-semibold">
-            Docent Analysis Report
-          </div>
+        <!-- Quick Action Bar (Top) -->
+        <div class="flex items-center justify-between border-b border-[#E8E3D7] pb-3">
           <div class="flex items-center gap-2">
-            <button 
-              id="btn-result-reset" 
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#D5CFC3] text-xs text-[#5C574F] hover:bg-white active:bg-[#F2ECE1] transition-colors cursor-pointer">
-              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-              <span>다른 작품 분석하기</span>
-            </button>
-            <button 
-              id="btn-result-export-pdf" 
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs font-medium transition-colors cursor-pointer">
-              <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
-              <span>PDF 도록 출력</span>
-            </button>
+            <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+            <span class="text-[11px] font-serifEn tracking-[0.2em] uppercase text-[#722F37] font-bold">
+              Instant Art Docent
+            </span>
           </div>
+          <button 
+            id="btn-result-reset" 
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D5CFC3] hover:border-[#5C1D24] text-xs text-[#333] transition-colors cursor-pointer shadow-xs">
+            <i data-lucide="camera" class="w-3.5 h-3.5 text-[#5C1D24]"></i>
+            <span class="font-medium">📷 다음 작품 바로 찍기</span>
+          </button>
         </div>
 
-        <!-- 1. Artwork Hero & Identified Titles -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-6">
-          <div class="bg-[#F2ECE1] border border-[#E2DDD3] p-4 flex items-center justify-center shadow-inner">
+        <!-- 1. Artwork Photo Frame -->
+        <div class="bg-white border border-[#E8E3D7] p-4 sm:p-6 shadow-sm">
+          <div class="bg-[#F2ECE1] border border-[#E2DDD3] p-3 flex items-center justify-center shadow-inner">
             <img 
               id="result-display-image" 
               src="" 
               alt="분석 작품" 
-              class="max-h-[520px] w-auto max-w-full object-contain mx-auto shadow-md"
+              class="max-h-[460px] w-auto max-w-full object-contain mx-auto shadow-md"
             />
           </div>
+        </div>
 
-          <div class="border-b border-[#EAE5DA] pb-6">
-            <div id="result-display-artist" class="font-serifEn text-sm tracking-[0.2em] uppercase text-[#722F37] font-semibold mb-1">
-              작가 미상
+        <!-- 2. QUICK DOCENT CAPTION CARD (내 옆의 친절한 도슨트 귓속말) -->
+        <div class="bg-white border-2 border-[#5C1D24]/30 p-6 sm:p-8 shadow-md space-y-5 relative">
+          <div class="border-b border-[#EAE5DA] pb-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+              <span id="result-display-artist" class="font-serifEn text-xs sm:text-sm tracking-[0.18em] uppercase text-[#722F37] font-semibold">
+                작가 미상
+              </span>
+              <!-- 핵심 화풍 배지 -->
+              <span id="result-quick-artstyle" class="text-[11px] bg-[#FAF4ED] border border-[#EADFCF] text-[#5C1D24] px-2.5 py-0.5 font-medium font-serifKr">
+                # 화풍 분석
+              </span>
             </div>
-            <h1 id="result-display-title" class="font-serifKr text-2xl sm:text-3xl font-bold text-[#1B1A17] leading-snug">
+            <h1 id="result-display-title" class="font-serifKr text-xl sm:text-2xl font-bold text-[#1B1A17] leading-snug">
               제목 미상
             </h1>
           </div>
 
-          <!-- Section A: First Impression -->
-          <div class="space-y-3">
+          <!-- 도슨트 한마디 (친절한 조언자 목소리) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-[#5C1D24]">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>도슨트의 친절한 한마디</span>
+            </div>
+            <p id="result-quick-voice" class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF8F3] p-4 border-l-3 border-[#5C1D24] font-serifKr">
+              <!-- Fast docent text -->
+            </p>
+          </div>
+
+          <!-- 지금 볼 감상 포인트 -->
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-[#1B263B]">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+              <span>지금 눈여겨볼 시각적 포인트</span>
+            </div>
+            <p id="result-quick-point" class="text-xs sm:text-sm text-[#3A352F] leading-relaxed bg-[#F7F6F2] p-4 border-l-3 border-[#1B263B]">
+              <!-- Viewing point text -->
+            </p>
+          </div>
+
+          <!-- Quick Action Buttons Group -->
+          <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+            <button 
+              id="btn-quick-next-photo" 
+              type="button" 
+              class="flex-1 inline-flex items-center justify-center gap-2 bg-[#5C1D24] hover:bg-[#75252E] text-white py-3 px-4 text-xs font-medium tracking-wider uppercase shadow-xs transition-colors cursor-pointer">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>다른 작품 바로 스캔하기</span>
+            </button>
+
+            <button 
+              id="btn-quick-save-scroll" 
+              type="button" 
+              class="inline-flex items-center justify-center gap-1.5 bg-[#FAF7F0] hover:bg-[#F2ECE1] border border-[#D5CFC3] text-[#333] py-3 px-4 text-xs font-medium transition-colors cursor-pointer">
+              <i data-lucide="bookmark" class="w-4 h-4 text-[#5C1D24]"></i>
+              <span>보관함에 저장하기</span>
+            </button>
+
+            <button 
+              id="btn-toggle-deep-analysis" 
+              type="button" 
+              class="inline-flex items-center justify-center gap-1.5 border border-[#D5CFC3] hover:border-[#5C1D24] bg-white text-[#4A443D] py-3 px-4 text-xs font-medium transition-colors cursor-pointer">
+              <i data-lucide="book-open" class="w-4 h-4 text-[#722F37]"></i>
+              <span id="btn-toggle-deep-text">📖 심층 평론 & 유사 작가 더보기</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. DEEP CURATORIAL REPORT (심층 모드: 필요할 때만 펼쳐보기) -->
+        <div id="deep-analysis-section" class="hidden space-y-6 pt-4 border-t-2 border-[#E8E3D7]">
+          
+          <div class="bg-[#FAF7F0] border border-[#E2DDD3] p-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-              <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">A. 작품의 첫인상과 시각적 분위기</h3>
+              <i data-lucide="scroll" class="w-4 h-4 text-[#5C1D24]"></i>
+              <span class="font-serifKr text-xs sm:text-sm font-bold text-[#1B1A17]">심층 미술 평론 & 유사 거장 3인 리포트</span>
             </div>
-            <div id="result-first-impression" class="editorial-quote text-sm text-[#2E2C28] leading-relaxed bg-[#FAF8F3] p-6 whitespace-pre-line font-serifKr"></div>
-          </div>
-        </div>
-
-        <!-- Section B: Art Historical Context & Movements -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">B. 미술사적 맥락과 미술사조 분석</h3>
-          </div>
-          <p class="text-xs text-[#8F887D]">
-            * ART INSIGHT는 미술사조를 숫자나 백분율로 단정하지 않고, 시각적 요소들의 상호작용과 작가의 독창성을 평론 문체로 서술합니다.
-          </p>
-          <div id="result-movements-tags" class="flex flex-wrap gap-2 pt-1"></div>
-          <div id="result-historical-narrative" class="text-sm text-[#2E2C28] leading-relaxed bg-[#FAF9F6] border border-[#EAE5DA] p-6 whitespace-pre-line"></div>
-        </div>
-
-        <!-- Section C: Formal Elements -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-5">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">C. 화풍과 조형적 특징 (시각적 관찰 근거)</h3>
+            <button 
+              id="btn-result-export-pdf" 
+              type="button" 
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#5C1D24] text-[#5C1D24] hover:bg-[#5C1D24] hover:text-white text-xs font-medium transition-colors cursor-pointer">
+              <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+              <span>PDF 도록 출력</span>
+            </button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 text-xs sm:text-sm">
-            <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6]">
-              <strong class="font-serifKr text-[#722F37] block mb-1">1. 색채와 정서적 울림</strong>
-              <p id="result-formal-color" class="text-[#3A352F] leading-relaxed"></p>
-            </div>
-            <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6]">
-              <strong class="font-serifKr text-[#722F37] block mb-1">2. 구도와 시선의 흐름</strong>
-              <p id="result-formal-composition" class="text-[#3A352F] leading-relaxed"></p>
-            </div>
-            <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6]">
-              <strong class="font-serifKr text-[#722F37] block mb-1">3. 형태 (구상과 추상)</strong>
-              <p id="result-formal-form" class="text-[#3A352F] leading-relaxed"></p>
-            </div>
-            <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6]">
-              <strong class="font-serifKr text-[#722F37] block mb-1">4. 붓질, 질감(마티에르), 기법</strong>
-              <p id="result-formal-texture" class="text-[#3A352F] leading-relaxed"></p>
-            </div>
+          <!-- Section B: Art Historical Context -->
+          <div class="bg-white border border-[#E8E3D7] p-5 sm:p-6 shadow-sm space-y-3">
+            <h3 class="font-serifKr text-sm font-bold text-[#1B1A17]">미술사적 맥락 및 사조 상호작용</h3>
+            <div id="result-movements-tags" class="flex flex-wrap gap-2 pt-1"></div>
+            <div id="result-historical-narrative" class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF9F6] border border-[#EAE5DA] p-4 whitespace-pre-line"></div>
           </div>
-          <div class="border border-[#EAE5DA] p-4 bg-[#FAF9F6] text-xs sm:text-sm">
-            <strong class="font-serifKr text-[#722F37] block mb-1">5. 빛과 그림자 (명암의 운용)</strong>
-            <p id="result-formal-light" class="text-[#3A352F] leading-relaxed"></p>
-          </div>
-        </div>
 
-        <!-- Section D: Similar Artists (3 Curated Artists) -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-5">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">D. 시각적 연관성을 지닌 유사 화풍의 작가 3인</h3>
-          </div>
-          <p class="text-xs text-[#8F887D]">
-            * 단순 나열이 아닌, 이미지에서 관찰된 실제 조형적 유사성과 차이점을 비교합니다.
-          </p>
-          <div id="result-similar-artists-container" class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6"></div>
-        </div>
-
-        <!-- Section E: Interpretation & Meaning -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">E. 작품의 상징과 다각적 해석</h3>
-          </div>
-          <div class="space-y-4 text-xs sm:text-sm text-[#2E2C28] leading-relaxed">
-            <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
-              <strong class="text-xs font-serifEn tracking-wider text-[#722F37] uppercase block mb-1.5">상징과 주제 의식</strong>
-              <p id="result-interp-symbols"></p>
-            </div>
-            <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
-              <strong class="text-xs font-serifEn tracking-wider text-[#722F37] uppercase block mb-1.5">열린 해석과 질문</strong>
-              <p id="result-interp-perspectives"></p>
+          <!-- Section C: Formal Elements -->
+          <div class="bg-white border border-[#E8E3D7] p-5 sm:p-6 shadow-sm space-y-4">
+            <h3 class="font-serifKr text-sm font-bold text-[#1B1A17]">화풍과 조형적 특징 (시각적 관찰 근거)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="border border-[#EAE5DA] p-3 bg-[#FAF9F6]">
+                <strong class="font-serifKr text-[#722F37] block mb-0.5">색채:</strong>
+                <p id="result-formal-color" class="text-[#3A352F]"></p>
+              </div>
+              <div class="border border-[#EAE5DA] p-3 bg-[#FAF9F6]">
+                <strong class="font-serifKr text-[#722F37] block mb-0.5">구도 및 공간:</strong>
+                <p id="result-formal-composition" class="text-[#3A352F]"></p>
+              </div>
+              <div class="border border-[#EAE5DA] p-3 bg-[#FAF9F6]">
+                <strong class="font-serifKr text-[#722F37] block mb-0.5">형태:</strong>
+                <p id="result-formal-form" class="text-[#3A352F]"></p>
+              </div>
+              <div class="border border-[#EAE5DA] p-3 bg-[#FAF9F6]">
+                <strong class="font-serifKr text-[#722F37] block mb-0.5">붓질과 마티에르:</strong>
+                <p id="result-formal-texture" class="text-[#3A352F]"></p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Section F: Author Intent vs AI Observation -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">F. 작가 의도와 AI의 독립적인 시각 해석 비교</h3>
+          <!-- Section D: Similar Artists 3 -->
+          <div class="bg-white border border-[#E8E3D7] p-5 sm:p-6 shadow-sm space-y-3">
+            <h3 class="font-serifKr text-sm font-bold text-[#1B1A17]">시각적 연관성을 지닌 유사 화풍의 작가 3인</h3>
+            <div id="result-similar-artists-container" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
           </div>
-          <div id="result-author-vs-ai" class="text-xs sm:text-sm text-[#2E2C28] leading-relaxed bg-[#FAF7F0] border-l-4 border-[#5C1D24] p-5 sm:p-6 whitespace-pre-line"></div>
-        </div>
 
-        <!-- Section G: Appreciation Guide -->
-        <div class="bg-white border border-[#E8E3D7] p-5 sm:p-10 shadow-sm space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-4 bg-[#5C1D24]"></span>
-            <h3 class="font-serifKr text-base font-bold text-[#1B1A17]">G. 도슨트 심층 감상 가이드</h3>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 text-xs sm:text-sm">
-            <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
-              <strong class="text-[#722F37] font-semibold block mb-2">다시 볼 때 주목할 시각적 포인트</strong>
-              <ul id="result-guide-focus" class="list-disc pl-5 space-y-1.5 text-[#3A352F]"></ul>
-            </div>
-            <div class="bg-[#FAF9F6] p-5 border border-[#EAE5DA]">
-              <strong class="text-[#722F37] font-semibold block mb-2">작품을 마주하며 던져볼 사유의 질문</strong>
-              <ul id="result-guide-questions" class="list-disc pl-5 space-y-1.5 text-[#3A352F]"></ul>
+          <!-- Section E: Interpretation -->
+          <div class="bg-white border border-[#E8E3D7] p-5 sm:p-6 shadow-sm space-y-3">
+            <h3 class="font-serifKr text-sm font-bold text-[#1B1A17]">작품의 상징과 다각적 해석</h3>
+            <div class="space-y-2 text-xs text-[#2E2C28] leading-relaxed">
+              <div class="bg-[#FAF9F6] p-3 border border-[#EAE5DA]">
+                <strong class="text-[10px] font-serifEn tracking-wider text-[#722F37] uppercase block mb-1">상징과 주제 의식</strong>
+                <p id="result-interp-symbols"></p>
+              </div>
+              <div class="bg-[#FAF9F6] p-3 border border-[#EAE5DA]">
+                <strong class="text-[10px] font-serifEn tracking-wider text-[#722F37] uppercase block mb-1">열린 해석과 질문</strong>
+                <p id="result-interp-perspectives"></p>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 8. ARCHIVE SAVE SECTION (사용자의 개인 감상 및 아카이브 저장) -->
-        <div class="bg-[#FAF7F0] border-2 border-[#D5CFC3] p-5 sm:p-10 shadow-md space-y-6">
+        <div id="archive-save-section" class="bg-[#FAF7F0] border-2 border-[#D5CFC3] p-5 sm:p-10 shadow-md space-y-6">
           <div class="border-b border-[#E2DDD3] pb-4">
             <span class="text-[10px] font-serifEn tracking-[0.2em] uppercase text-[#722F37] font-bold">Personal Archiving</span>
             <h3 class="font-serifKr text-xl font-bold text-[#1B1A17]">
@@ -566,6 +577,24 @@
         </div>
         
         <div class="flex items-center gap-2">
+          <button 
+            id="btn-backup-export" 
+            type="button" 
+            title="기기 변경이나 안전 보관을 위해 전체 아카이브를 JSON 파일로 다운로드합니다"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-[#F5F0E8] border border-[#D5CFC3] text-xs text-[#4A443D] transition-colors cursor-pointer">
+            <i data-lucide="download" class="w-3.5 h-3.5 text-[#5C1D24]"></i>
+            <span>백업 저장</span>
+          </button>
+
+          <label 
+            for="input-backup-import" 
+            title="저장해둔 백업 JSON 파일을 불러옵니다"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-[#F5F0E8] border border-[#D5CFC3] text-xs text-[#4A443D] transition-colors cursor-pointer">
+            <i data-lucide="upload" class="w-3.5 h-3.5 text-[#5C1D24]"></i>
+            <span>백업 복원</span>
+          </label>
+          <input type="file" id="input-backup-import" accept=".json" class="hidden" />
+
           <span id="total-count-badge" class="text-xs px-3 py-1 bg-[#F2ECE3] border border-[#E0D9CB] font-serifEn tracking-widest text-[#5C1D24] font-semibold">
             0개 작품
           </span>
@@ -701,31 +730,44 @@
         />
       </div>
 
-      <!-- Gemini Model Selection (모델 설정 기능) -->
+      <!-- Gemini Model Selection & Live Test -->
       <div>
-        <label for="select-gemini-model" class="block text-xs font-semibold text-[#1B1A17] mb-1">
-          분석 AI 모델 선택
-        </label>
+        <div class="flex items-center justify-between mb-1">
+          <label for="select-gemini-model" class="block text-xs font-semibold text-[#1B1A17]">
+            분석 AI 모델 선택
+          </label>
+          <button 
+            type="button" 
+            id="btn-test-api-connection" 
+            class="text-[11px] text-[#5C1D24] hover:underline font-medium inline-flex items-center gap-1 cursor-pointer">
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+            <span>내 키로 지원 모델 실시간 조회</span>
+          </button>
+        </div>
+        
         <div class="relative">
           <select 
             id="select-gemini-model" 
             class="w-full bg-[#FAF9F6] border border-[#D5CFC3] p-2.5 text-xs text-[#1B1A17] focus:outline-none focus:border-[#5C1D24] cursor-pointer appearance-none pr-8 font-mono">
-            <option value="gemini-3.8-flash" selected>gemini-3.8-flash (기본 권장)</option>
-            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+            <option value="gemini-3.8-flash" selected>gemini-3.8-flash (구글 최신 초고속 Flash / 강력 추천)</option>
+            <option value="gemini-3.6-flash">gemini-3.6-flash (안정 버전)</option>
             <option value="custom">직접 모델명 입력...</option>
           </select>
           <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-[#8F887D] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
         </div>
+        
         <input 
           type="text" 
           id="input-custom-gemini-model" 
           placeholder="사용할 모델명 입력 (예: gemini-3.8-flash)" 
           class="hidden mt-2 w-full bg-[#FAF9F6] border border-[#D5CFC3] p-2.5 text-xs text-[#1B1A17] focus:outline-none focus:border-[#5C1D24] font-mono"
         />
+
+        <!-- 실시간 연결 테스트 결과 박스 -->
+        <div id="api-test-result-box" class="hidden mt-2 p-2.5 text-[11px] border leading-relaxed"></div>
+
         <p class="text-[11px] text-[#8F887D] mt-1">
-          * 우선적으로 gemini-3.8-flash가 적용되며, 설정에서 원하시는 모델로 언제든 변경할 수 있습니다.
+          * 최신 고성능 Flash 모델(gemini-3.8-flash)이 우선 연결되며, [실시간 조회]를 누르면 사용자 계정에서 활성화된 모델을 즉시 확인합니다.
         </p>
       </div>
 
@@ -838,10 +880,69 @@
     </div>
   </div>
 
-  <!-- Scripts (Cache Busting v3.8.2) -->
-  <script src="js/ai-docent.js?v=3.8.2"></script>
-  <script src="js/db.js?v=3.8.2"></script>
-  <script src="js/pdf.js?v=3.8.2"></script>
-  <script src="js/app.js?v=3.8.2"></script>
+  <!-- ================= MODAL: 작품 정보 및 감상 수정 ================= -->
+  <div id="modal-edit-artwork" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 modal-overlay">
+    <div class="bg-[#FAF9F6] border border-[#DCD5C7] w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl modal-content">
+      
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#E8E3D7] bg-white">
+        <h3 class="font-serifKr text-base font-bold text-[#1B1A17] flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-4 h-4 text-[#5C1D24]"></i>
+          작품 정보 및 감상 기록 수정
+        </h3>
+        <button id="btn-close-edit-artwork" type="button" class="p-1 text-[#8F887D] hover:text-[#1B1A17] cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-[#4A443D] mb-1">작품명</label>
+          <input type="text" id="edit-artwork-title" class="w-full bg-white border border-[#D5CFC3] p-2.5 text-[#1B1A17] focus:outline-none focus:border-[#5C1D24]" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-[#4A443D] mb-1">작가명</label>
+          <input type="text" id="edit-artwork-artist" class="w-full bg-white border border-[#D5CFC3] p-2.5 text-[#1B1A17] focus:outline-none focus:border-[#5C1D24]" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-[#4A443D] mb-1">관람 장소 (미술관/갤러리)</label>
+            <input type="text" id="edit-artwork-location" class="w-full bg-white border border-[#D5CFC3] p-2.5 text-[#1B1A17] focus:outline-none focus:border-[#5C1D24]" />
+          </div>
+          <div>
+            <label class="block font-semibold text-[#4A443D] mb-1">관람 일자</label>
+            <input type="date" id="edit-artwork-date" class="w-full bg-white border border-[#D5CFC3] p-2.5 text-[#1B1A17] focus:outline-none focus:border-[#5C1D24]" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-[#4A443D] mb-1">개인 평점</label>
+          <div id="edit-star-rating" class="star-rating"></div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-[#4A443D] mb-1">나의 개인적인 감상 메모</label>
+          <textarea id="edit-artwork-notes" rows="4" class="w-full bg-white border border-[#D5CFC3] p-3 text-[#1B1A17] leading-relaxed focus:outline-none focus:border-[#5C1D24] resize-none"></textarea>
+        </div>
+      </div>
+
+      <div class="px-6 py-3.5 border-t border-[#E8E3D7] bg-[#F7F4ED] flex justify-end gap-2.5">
+        <button id="btn-cancel-edit-artwork" type="button" class="px-4 py-2 border border-[#D5CFC3] hover:bg-white text-xs font-medium cursor-pointer">
+          취소
+        </button>
+        <button id="btn-save-edit-artwork" type="button" class="px-5 py-2 bg-[#5C1D24] hover:bg-[#75252E] text-white text-xs font-medium cursor-pointer">
+          수정사항 저장
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts (Cache Busting v3.8.7) -->
+  <script src="js/ai-docent.js?v=3.8.7"></script>
+  <script src="js/db.js?v=3.8.7"></script>
+  <script src="js/pdf.js?v=3.8.7"></script>
+  <script src="js/app.js?v=3.8.7"></script>
 </body>
 </html>

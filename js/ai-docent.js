@@ -1,6 +1,7 @@
 /**
- * ART INSIGHT — Multimodal AI Art Docent Engine
- * Google Gemini Vision API 연동 및 심층 미술 도슨트 분석 모듈
+ * ART INSIGHT — Fast Docent & In-Depth Curatorial Engine
+ * 현장 관람 최적화: 1~2초 고속 퀵 도슨트 + 선택적 심층 리포트 2단계 엔진
+ * (2026년 기준 공식 지원 모델: gemini-3.8-flash, gemini-3.6-flash)
  */
 
 const ArtAiDocent = {
@@ -8,12 +9,10 @@ const ArtAiDocent = {
   MODEL_STORAGE_KEY: 'art_insight_gemini_model',
   DEFAULT_MODEL: 'gemini-3.8-flash',
 
-  // API Key 가져오기
   getApiKey() {
     return (localStorage.getItem(this.STORAGE_KEY) || '').trim();
   },
 
-  // API Key 저장하기
   setApiKey(key) {
     if (!key || !key.trim()) {
       localStorage.removeItem(this.STORAGE_KEY);
@@ -22,49 +21,26 @@ const ArtAiDocent = {
     }
   },
 
-  // API Key 유효 여부 확인
   hasApiKey() {
     const key = this.getApiKey();
     return Boolean(key && key.length > 15);
   },
 
-  // 설정된 모델명 가져오기 (기본값: gemini-3.8-flash)
   getSelectedModel() {
-    return (localStorage.getItem(this.MODEL_STORAGE_KEY) || this.DEFAULT_MODEL).trim();
+    let m = (localStorage.getItem(this.MODEL_STORAGE_KEY) || this.DEFAULT_MODEL).trim();
+    // 2026년 기준 지원 중단된 과거 모델(1.x, 2.x, 3.5)이 남아있는 경우 최신 안정 gemini-3.8-flash로 자동 마이그레이션
+    if (!m.startsWith('gemini-3.8') && !m.startsWith('gemini-3.6')) {
+      m = this.DEFAULT_MODEL;
+      localStorage.setItem(this.MODEL_STORAGE_KEY, m);
+    }
+    return m;
   },
 
-  // 모델명 저장하기
   setSelectedModel(modelName) {
-    if (!modelName || !modelName.trim()) {
-      localStorage.setItem(this.MODEL_STORAGE_KEY, this.DEFAULT_MODEL);
-    } else {
-      localStorage.setItem(this.MODEL_STORAGE_KEY, modelName.trim());
-    }
+    const sanitized = (modelName || this.DEFAULT_MODEL).trim();
+    localStorage.setItem(this.MODEL_STORAGE_KEY, sanitized);
   },
 
-  // UI 모델명을 Google AI Studio 실제 지원 API 모델명으로 지능형 매핑
-  resolveActualModelName(modelName) {
-    const raw = (modelName || '').toLowerCase().trim();
-    
-    // gemini-3.8-flash 또는 gemini-2.5-flash 등 상위 라벨을 Google AI Studio 실제 Flash 모델로 매핑
-    if (raw === 'gemini-3.8-flash' || raw === 'gemini-2.5-flash') {
-      return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'];
-    }
-    if (raw === 'gemini-2.0-flash') {
-      return ['gemini-2.0-flash', 'gemini-1.5-flash'];
-    }
-    if (raw === 'gemini-1.5-flash') {
-      return ['gemini-1.5-flash', 'gemini-1.5-flash-latest'];
-    }
-    if (raw === 'gemini-1.5-pro') {
-      return ['gemini-1.5-pro', 'gemini-1.5-pro-latest'];
-    }
-
-    // 사용자가 직접 입력한 모델명이면 해당 모델을 1순위로, 실패 시 1.5-flash로 fallback
-    return [raw, 'gemini-1.5-flash'];
-  },
-
-  // Base64 데이터에서 MIME 타입과 순수 Base64 분리
   parseBase64(dataUrl) {
     if (!dataUrl || typeof dataUrl !== 'string') {
       throw new Error('유효한 이미지 데이터가 전달되지 않았습니다.');
@@ -73,281 +49,352 @@ const ArtAiDocent = {
     if (!matches || matches.length !== 3) {
       throw new Error('유효하지 않은 이미지 Base64 포맷입니다.');
     }
-    return {
-      mimeType: matches[1],
-      data: matches[2]
-    };
+    return { mimeType: matches[1], data: matches[2] };
   },
 
-  // 심층 도슨트 분석 프롬프트 생성
-  buildDocentPrompt(authorNotes = '', labelText = '') {
-    const cleanNotes = (authorNotes || '').replace(/"/g, "'").trim();
-    const cleanLabel = (labelText || '').replace(/"/g, "'").trim();
+  // 실시간 구글 서버 API 지원 모델 목록 조회 (v1beta & v1)
+  async fetchAvailableModels(apiKey) {
+    const key = (apiKey || this.getApiKey()).trim();
+    if (!key) throw new Error('API 키가 입력되지 않았습니다.');
 
+    let data = null;
+    for (const ver of ['v1beta', 'v1']) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/${ver}/models?key=${key}`;
+        const response = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
+        if (response.ok) {
+          data = await response.json();
+          break;
+        }
+      } catch (e) {
+        console.warn(`[ART INSIGHT] ${ver} ListModels 실패:`, e);
+      }
+    }
+
+    if (!data || !data.models) {
+      throw new Error('구글 서버 모델 목록 조회에 실패했습니다. API 키를 확인해주세요.');
+    }
+
+    const models = (data.models || [])
+      .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''))
+      .filter(name => !name.includes('embedding') && !name.includes('aqa') && !name.includes('imagen'));
+
+    return models;
+  },
+
+  // 1단계: 퀵 도슨트 프롬프트 (전시장에서 1~2초 만에 듣는 친절한 도슨트 귓속말)
+  buildQuickDocentPrompt(authorNotes = '') {
     return `
-당신은 세계적인 현대미술관의 수석 도슨트이자 저명한 아트 매거진의 미술 평론가입니다.
-제공된 미술 작품 이미지(및 함께 첨부된 전시 라벨/작가 노트)를 시각적 근거에 기반하여 깊이 있게 분석해 주십시오.
+당신은 관람객 바로 옆에서 다정하고 세련되게 귀띔해 주는 미술관 수석 도슨트입니다.
+업로드된 그림을 보고, 관람객이 전시 현장에서 즉시 흥미롭게 감상할 수 있도록 핵심만 간결하고 품격 있는 도슨트의 목소리로 설명해주세요.
 
-[작성 및 분석의 절대 원칙]
-1. 문체: 미술관 도슨트의 품격 있고 친절한 안내와, 미술 전문지의 깊이 있고 유려한 평론 문체를 결합하십시오. 기술적 데이터 분석 보고서처럼 작성하지 마십시오.
-2. 미술사조 분석 원칙: 
-   - 미술사조를 숫자나 백분율(예: 30% 인상주의 등)로 절대 표현하지 마십시오.
-   - 여러 미술사조의 특징이 융합된 경우, 각 사조가 어떤 시각적 요소(색채, 형태, 구도 등)에서 발현되고 상호작용하는지 서술하십시오.
-   - 기존 미술사조로 규정하기 힘든 작가만의 독창적인 조형 언어도 존중하여 다루십시오.
-3. 시각적 사실과 해석의 분리:
-   - 색채, 구도, 형태, 붓질, 질감, 명암 등 이미지에서 실제로 관찰할 수 있는 구체적인 시각적 증거를 바탕으로 분석하십시오.
-   - 작품의 의미를 하나의 정답으로 단정하지 말고, 열린 다각적 해석을 제시하십시오.
-4. 작가 의도와 AI 독립적 해석의 비교:
-   - 사용자가 작가 노트나 라벨 텍스트를 제공한 경우, 작가가 밝힌 의도와 AI가 시각적으로 관찰하고 해석한 지점을 명확히 비교하십시오.
-   - 작가 노트가 첨부되지 않은 경우, 작가의 의도를 임의로 날조하지 마십시오.
-5. 유사 작가 3인:
-   - 시각적 화풍과 조형적 연관성이 뚜렷한 작가 3명을 엄선하십시오.
-   - 단순 나열이 아닌 유사한 조형 요소, 명확한 차이점, 대표작을 구체적으로 제시하십시오.
-
-[출력 형식 가이드]
-반드시 유효한 JSON 형식으로만 응답해야 합니다. 마크다운 코드 블록 없이 순수 JSON만 반환하십시오.
+[작성 원칙]
+1. 복잡한 논문이나 블로그 글처럼 길게 쓰지 마십시오.
+2. "이 작품은요..." 하고 조곤조곤 짚어주는 자연스럽고 친절한 대화체(~입니다, ~해보세요)를 사용하십시오.
+3. 미술사조를 숫자나 백분율(% 기호)로 쓰지 마십시오.
+4. 아래 JSON 포맷으로만 응답하십시오.
 
 JSON 구조:
 {
-  "suggestedTitle": "작품에서 유추되거나 라벨에 적힌 작품명 (알 수 없으면 시각적 인상을 담은 임시 제목)",
-  "suggestedArtist": "작품에서 유추되거나 라벨에 적힌 작가명 (알 수 없으면 '작자 미상')",
-  "firstImpression": "작품 전체에서 전해지는 압도적인 분위기, 가장 먼저 시선을 사로잡는 시각적 요소, 정서와 긴장감 서술 (2~3문단)",
+  "suggestedTitle": "작품명 (추정 또는 유추되는 제목, 모르면 인상적인 어울리는 제목)",
+  "suggestedArtist": "화가명 (추정되는 작가 이름, 모르면 작자 미상)",
+  "artStyle": "핵심 화풍 한눈에 보기 (예: 인상주의적 빛과 표현주의적 강렬한 색채)",
+  "docentVoice": "도슨트의 친절한 핵심 해설 (작품의 첫인상, 전체적인 분위기, 어떤 마음으로 그렸는지 2~3문장)",
+  "viewingPoint": "지금 바로 눈여겨볼 시각적 감상 팁 (어느 부분의 색채나 붓터치, 형태를 보면 좋은지 1~2문장)"
+}
+${authorNotes ? `[참고자료/작가노트]: ${authorNotes}` : ''}
+`;
+  },
+
+  // 2단계: 심층 도슨트 프롬프트 (필요할 때만 펼쳐보는 매거진급 심층 평론)
+  buildDeepDocentPrompt(quickData, authorNotes = '', labelText = '') {
+    return `
+당신은 권위 있는 아트 매거진의 미술 평론가이자 미술사학자입니다.
+기존 퀵 도슨트 정보("${quickData?.suggestedTitle || '작품'}" / "${quickData?.suggestedArtist || '작가'}")를 바탕으로,
+이 작품의 미술사적 맥락, 조형적 기법 5대 요소, 시각적 연관성을 지닌 유사 거장 작가 3인, 그리고 작품의 다각적 해석을 심층적으로 분석하십시오.
+미술사조를 백분율이나 숫자로 분류하지 마십시오.
+
+출력은 반드시 유효한 JSON 포맷이어야 합니다.
+JSON 구조:
+{
   "artHistoricalContext": {
-    "movements": ["관련 미술사조 명칭 1", "관련 미술사조 2"],
-    "narrative": "미술사적 맥락과 사조들의 유기적인 상호작용 서술 (숫자/백분율 금지, 독창성 강조)"
+    "movements": ["관련 미술사조 1", "사조 2"],
+    "narrative": "미술사적 맥락과 사조들의 상호작용 평론 서술"
   },
   "formalElements": {
-    "color": "주요 색상, 색채 대비, 정서적 울림",
-    "composition": "화면 구성, 시선의 흐름, 공간의 균형과 배치",
-    "form": "구상과 추상성, 형태의 단순화 및 왜곡",
-    "brushworkAndTexture": "붓터치의 속도감과 방향성, 마티에르(질감), 물감의 물성과 기법",
+    "color": "주요 색상과 색채 대비의 정서적 효과",
+    "composition": "화면 구성과 시선의 흐름",
+    "form": "형태의 왜곡과 구상/추상성",
+    "brushworkAndTexture": "붓질과 마티에르, 재료의 물성",
     "lightAndShadow": "빛과 명암의 운용"
   },
   "similarArtists": [
     {
-      "name": "작가 이름 (국문 및 영문)",
-      "artisticStyle": "해당 작가의 대표 화풍 및 미술사적 위치",
-      "similarities": "본 작품과 시각적으로 유사한 구체적 부분",
-      "differences": "두 화풍 간의 결정적 차이점",
-      "keyWork": "참고하여 감상할 만한 대표 작품"
+      "name": "작가 이름 1",
+      "artisticStyle": "대표 화풍",
+      "similarities": "시각적 유사점",
+      "differences": "화풍의 차이점",
+      "keyWork": "대표 참고작"
     },
     {
-      "name": "작가 이름 (국문 및 영문)",
-      "artisticStyle": "해당 작가의 대표 화풍 및 미술사적 위치",
-      "similarities": "본 작품과 시각적으로 유사한 구체적 부분",
-      "differences": "두 화풍 간의 결정적 차이점",
-      "keyWork": "참고하여 감상할 만한 대표 작품"
+      "name": "작가 이름 2",
+      "artisticStyle": "대표 화풍",
+      "similarities": "시각적 유사점",
+      "differences": "화풍의 차이점",
+      "keyWork": "대표 참고작"
     },
     {
-      "name": "작가 이름 (국문 및 영문)",
-      "artisticStyle": "해당 작가의 대표 화풍 및 미술사적 위치",
-      "similarities": "본 작품과 시각적으로 유사한 구체적 부분",
-      "differences": "두 화풍 간의 결정적 차이점",
-      "keyWork": "참고하여 감상할 만한 대표 작품"
+      "name": "작가 이름 3",
+      "artisticStyle": "대표 화풍",
+      "similarities": "시각적 유사점",
+      "differences": "화풍의 차이점",
+      "keyWork": "대표 참고작"
     }
   ],
   "interpretation": {
-    "symbolsAndThemes": "화면에 깃든 상징, 주제 의식, 철학적 사유",
-    "multiplePerspectives": "단정 짓지 않는 다양한 해석의 가능성들과 작품이 던지는 질문"
+    "symbolsAndThemes": "상징과 철학적 사유",
+    "multiplePerspectives": "열린 다각적 해석과 사유의 질문"
   },
   "authorIntentVsAiPerspective": {
-    "hasAuthorNote": ${Boolean(cleanNotes || cleanLabel)},
-    "authorIntent": "${cleanNotes || cleanLabel ? '제공된 자료를 바탕으로 요약한 작가의 의도' : '첨부된 작가 설명 자료가 없어 작가의 의도를 예단하지 않습니다.'}",
-    "aiObservation": "이미지에서 AI가 객관적으로 관찰한 시각적 특징",
-    "comparativeAnalysis": "${cleanNotes || cleanLabel ? '작가의 의도와 AI의 시각적 해석이 일치하는 지점 및 새롭게 발견되는 시각적 긴장감 비교' : '시각적 이미지 자체에 집중하여 독립적인 해석을 전개합니다.'}"
+    "hasAuthorNote": ${Boolean(authorNotes || labelText)},
+    "authorIntent": "${authorNotes || labelText ? '작가의 밝힌 의도' : '자료 미첨부'}",
+    "aiObservation": "AI가 시각적으로 관찰한 특징",
+    "comparativeAnalysis": "작가의 의도와 시각적 관찰 비교 분석"
   },
   "appreciationGuide": {
-    "focusPoints": ["다시 볼 때 눈여겨보아야 할 미세한 시각적 포인트 1", "포인트 2"],
-    "reflectiveQuestions": ["작품 앞에서 스스로에게 던져볼 만한 사유의 질문 1", "질문 2"]
+    "focusPoints": ["심층 주목 포인트 1", "포인트 2"],
+    "reflectiveQuestions": ["사유의 질문 1", "질문 2"]
   }
 }
-
-${cleanNotes ? `\n[사용자가 첨부한 작가 노트/설명]:\n${cleanNotes}\n` : ''}
-${cleanLabel ? `\n[사용자가 첨부한 전시 라벨/도록 텍스트]:\n${cleanLabel}\n` : ''}
 `;
   },
 
-  // 메인 분석 실행 함수 (gemini-3.8-flash 지능형 매핑 + v1beta 공식 멀티모달 호출)
-  async analyzeArtwork({ mainImageDataUrl, labelImageDataUrl = null, authorNotes = '', labelText = '' }) {
+  // 1단계: 퀵 도슨트 분석 실행 (초고속 1~2초 응답, thinkingLevel: low)
+  async analyzeQuickDocent({ mainImageDataUrl, authorNotes = '' }) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
       throw new Error('API_KEY_REQUIRED: Gemini API 키가 설정되지 않았습니다.');
     }
 
     const mainImg = this.parseBase64(mainImageDataUrl);
-    const promptText = this.buildDocentPrompt(authorNotes, labelText);
+    const promptText = this.buildQuickDocentPrompt(authorNotes);
 
-    // Google Generative AI REST 표준 형식 (snake_case)
     const parts = [
-      {
-        text: promptText
-      },
-      {
-        inline_data: {
-          mime_type: mainImg.mimeType,
-          data: mainImg.data
-        }
-      }
+      { text: promptText },
+      { inline_data: { mime_type: mainImg.mimeType, data: mainImg.data } }
     ];
 
-    if (labelImageDataUrl) {
-      try {
-        const labelImg = this.parseBase64(labelImageDataUrl);
-        parts.push({
-          inline_data: {
-            mime_type: labelImg.mimeType,
-            data: labelImg.data
-          }
-        });
-      } catch (e) {
-        console.warn('라벨 이미지 첨부 스킵:', e);
-      }
-    }
-
     const requestBody = {
-      contents: [
-        {
-          parts: parts
-        }
-      ],
+      contents: [{ parts: parts }],
       generationConfig: {
-        temperature: 0.35,
-        topP: 0.95,
-        responseMimeType: 'application/json'
+        temperature: 0.2,
+        topP: 0.9,
+        maxOutputTokens: 2048,
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingLevel: 'low'
+        }
       }
     };
 
-    // 설정된 모델명 해석 (gemini-3.8-flash -> gemini-1.5-flash / gemini-2.0-flash 등 실제 API 모델 순회)
+    return await this.callGeminiApiWithRetry(apiKey, requestBody);
+  },
+
+  // 2단계: 심층 도슨트 분석 실행 (사용자가 원할 때만 추가 호출)
+  async analyzeDeepDocent({ mainImageDataUrl, quickData, authorNotes = '', labelText = '' }) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) throw new Error('API 키가 없습니다.');
+
+    const mainImg = this.parseBase64(mainImageDataUrl);
+    const promptText = this.buildDeepDocentPrompt(quickData, authorNotes, labelText);
+
+    const parts = [
+      { text: promptText },
+      { inline_data: { mime_type: mainImg.mimeType, data: mainImg.data } }
+    ];
+
+    const requestBody = {
+      contents: [{ parts: parts }],
+      generationConfig: {
+        temperature: 0.3,
+        topP: 0.95,
+        maxOutputTokens: 4096,
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingLevel: 'medium'
+        }
+      }
+    };
+
+    return await this.callGeminiApiWithRetry(apiKey, requestBody);
+  },
+
+  // 2026년 Gemini 3.8 Flash 전용 API 호출 & 재시도 핸들러
+  async callGeminiApiWithRetry(apiKey, requestBody) {
     const userSelected = this.getSelectedModel();
-    const candidateModels = this.resolveActualModelName(userSelected);
-    
-    // 만료된 exp 모델 원천 배제
-    const filteredModels = candidateModels.filter(m => m && !m.includes('exp'));
-    const uniqueModels = [...new Set(filteredModels)];
+    const candidateModels = [
+      userSelected,
+      'gemini-3.8-flash',
+      'gemini-3.6-flash'
+    ].filter(Boolean);
 
-    let primaryErrorMessage = '';
+    const modelsToTry = [...new Set(candidateModels)];
+    let lastErrorMsg = '';
 
-    for (const model of uniqueModels) {
-      // 공식 v1beta 엔드포인트 호출 (v1beta가 responseMimeType 및 멀티모달 공식 규격 지원)
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-      try {
-        console.log(`[ART INSIGHT] Gemini 모델 호출: ${model}`);
-        
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        });
+    for (const model of modelsToTry) {
+      // v1beta 및 v1 둘 다 지원
+      for (const apiVersion of ['v1beta', 'v1']) {
+        const endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`;
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `HTTP ${response.status}`;
-          
-          if (response.status === 400 && errMsg.includes('API_KEY_INVALID')) {
-            throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 올바르지 않습니다. Google AI Studio에서 키를 다시 확인해주세요.');
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            console.log(`[ART INSIGHT] ${apiVersion}/${model} 호출 (시도 ${attempt})`);
+            
+            // 15초 초과 시 타임아웃하여 2분 대기 방지
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody),
+              signal: AbortSignal.timeout(15000)
+            });
+
+            if (!response.ok) {
+              const errData = await response.json().catch(() => ({}));
+              const errMsg = errData.error?.message || `HTTP ${response.status}`;
+
+              if (response.status === 400 && errMsg.includes('API_KEY_INVALID')) {
+                throw new Error('API_KEY_INVALID: 입력하신 Gemini API 키가 올바르지 않습니다.');
+              }
+
+              // High Demand(503) 또는 Rate Limit(429) 시 1.5초 대기 후 1회 재시도
+              if (response.status === 429 || response.status === 503 || errMsg.includes('demand')) {
+                if (attempt === 1) {
+                  console.warn(`[ART INSIGHT] 구글 일시 과부하(${response.status}), 1.5초 후 재시도...`);
+                  await sleep(1500);
+                  continue;
+                } else {
+                  lastErrorMsg = '구글 서버의 일시적 트래픽 집중 상태입니다. 잠시 후 다시 시도해 주세요.';
+                  break;
+                }
+              }
+
+              lastErrorMsg = errMsg;
+              // 404 등 모델/버전 불일치 시 다음으로 즉시 이동
+              break;
+            }
+
+            const resultJson = await response.json();
+            const candidate = resultJson.candidates?.[0];
+            if (!candidate || !candidate.content?.parts) {
+              throw new Error('유효한 응답 데이터가 없습니다.');
+            }
+
+            // thinking 모델 대응: thought 파트가 아닌 실제 answer 파트 추출
+            const answerPart = candidate.content.parts.find(p => !p.thought && p.text) 
+              || candidate.content.parts[candidate.content.parts.length - 1];
+            
+            if (!answerPart || !answerPart.text) {
+              throw new Error('응답 본문 텍스트를 찾을 수 없습니다.');
+            }
+
+            let cleaned = answerPart.text.trim();
+            if (cleaned.startsWith('```json')) {
+              cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            } else if (cleaned.startsWith('```')) {
+              cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+            }
+
+            return JSON.parse(cleaned);
+
+          } catch (err) {
+            if (err.message.startsWith('API_KEY_INVALID')) throw err;
+            if (err.name === 'TimeoutError') {
+              console.warn(`[ART INSIGHT] ${model} 요청 타임아웃 (15초)`);
+              lastErrorMsg = '서버 응답 지연으로 요청이 타임아웃되었습니다.';
+              break;
+            }
+            lastErrorMsg = err.message;
+            break;
           }
-          if (response.status === 429) {
-            throw new Error('RATE_LIMIT: API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
-          }
-
-          if (!primaryErrorMessage) {
-            primaryErrorMessage = errMsg;
-          }
-          console.warn(`[ART INSIGHT] 모델 [${model}] 응답 실패: ${errMsg}, 다음 모델로 전환합니다.`);
-          continue;
-        }
-
-        const resultJson = await response.json();
-        const candidate = resultJson.candidates?.[0];
-        if (!candidate || !candidate.content?.parts?.[0]?.text) {
-          throw new Error('AI 모델로부터 유효한 텍스트 응답을 수신하지 못했습니다.');
-        }
-
-        const rawText = candidate.content.parts[0].text.trim();
-        let cleaned = rawText;
-        if (cleaned.startsWith('```json')) {
-          cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleaned.startsWith('```')) {
-          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-
-        console.log(`[ART INSIGHT] 모델 [${model}]로부터 성공적으로 분석 리포트를 수신했습니다!`);
-        return JSON.parse(cleaned);
-
-      } catch (fetchErr) {
-        if (fetchErr.message.startsWith('API_KEY_INVALID') || fetchErr.message.startsWith('RATE_LIMIT')) {
-          throw fetchErr;
-        }
-        if (!primaryErrorMessage) {
-          primaryErrorMessage = fetchErr.message;
         }
       }
     }
 
-    throw new Error(`AI 모델 응답 오류: ${primaryErrorMessage || '호환 가능한 Flash 모델을 찾을 수 없습니다.'}`);
+    throw new Error(lastErrorMsg || 'AI 모델 응답에 실패했습니다. 잠시 후 다시 시도해 주세요.');
   },
 
-  // [체험용 샘플 도슨트 데이터]
-  generateSampleDocentReport(artworkTitle = '빛과 침묵의 공간', artistName = '에디토리얼 마스터') {
+  // 체험용 퀵 도슨트 샘플
+  generateSampleQuickDocent() {
     return {
-      suggestedTitle: artworkTitle || '빛과 침묵의 공간 (Space of Light & Silence)',
-      suggestedArtist: artistName || '작자 미상 (현대 미술)',
-      firstImpression: `작품을 마주하는 순간 가장 먼저 다가오는 것은 팽팽하게 응축된 고요함과 빛의 온기입니다.\n\n화면 전체를 지배하는 부드러운 명암의 그라데이션은 관람자의 시선을 자연스럽게 캔버스 깊은 곳으로 이끌며, 대상의 디테일을 과감히 생략하고 형태의 본질적인 윤곽만을 남겨둠으로써 감상자에게 깊은 시각적 명상의 시간을 선사합니다.\n\n거칠지 않게 축적된 물감의 층위는 마치 오랜 시간의 퇴적물을 바라보는 듯한 서정적 긴장감을 자아냅니다.`,
+      suggestedTitle: '별이 빛나는 밤 (The Starry Night)',
+      suggestedArtist: '빈센트 반 고흐 (Vincent van Gogh)',
+      artStyle: '후기 인상주의 및 표현주의의 격정적 소용돌이',
+      docentVoice: '어둠이 내려앉은 밤하늘을 소용돌이치는 강렬한 붓질과 찬란한 노란 별빛으로 가득 채운 명작입니다. 고흐가 생레미 요양원의 창밖을 바라보며 느꼈던 깊은 고독과 자연의 신비로운 생명력이 고스란히 전해집니다.',
+      viewingPoint: '하늘 가운데 거대하게 회오리치는 코발트 블루의 물결과, 왼쪽 전면에 솟아오른 짙은 사이프러스 나무의 상승하는 실루엣을 눈여겨보세요.'
+    };
+  },
+
+  // 체험용 전체 심층 도슨트 리포트 샘플
+  generateSampleDocentReport() {
+    const quick = this.generateSampleQuickDocent();
+    return {
+      ...quick,
+      firstImpression: quick.docentVoice,
       artHistoricalContext: {
-        movements: ['후기 인상주의의 색채 감각', '미니멀리즘적 공간 구성', '색면추상(Color Field)'],
-        narrative: `이 작품은 20세기 초 후기 인상주의가 탐구했던 빛과 색채의 자율성을 출발점으로 삼으면서도, 미니멀리즘 특유의 정제된 기하학적 공간 구획을 절묘하게 결합하고 있습니다.\n\n불필요한 서사적 설명을 과감히 걷어내고 색채 그 자체가 가진 울림에 집중하는 방식은 마크 로스코(Mark Rothko)의 색면추상과 조형적 대화를 나누는 듯합니다. 특정 사조에 머무르지 않고, 구상적 모티프를 추상화된 시각적 질서로 승화시킨 작가만의 독창적인 조형 언어가 돋보입니다.`
+        movements: ['후기 인상주의 (Post-Impressionism)', '표현주의 (Expressionism)'],
+        narrative: '이 작품은 인상주의의 순간적 빛 관찰에서 출발하였으나, 작가의 내면적 격정과 영적 감정을 표출하기 위해 형태를 주관적으로 왜곡한 후기 인상주의의 정점입니다. 격정적인 붓질과 원색의 강렬한 대비는 훗날 독일 표현주의와 현대 추상미술로 이어지는 거대한 징검다리가 되었습니다.'
       },
       formalElements: {
-        color: '톤 다운된 어스(Earth) 계열의 베이지와 딥 오커, 그리고 은은하게 스며드는 코발트 틴트가 빚어내는 온화하면서도 절제된 색채 조화',
-        composition: '수평과 수직의 비대칭적 황금 분할을 통해 안정감과 시각적 개방감을 동시에 확보한 여백 중심의 구도',
-        form: '사물의 구체적인 형태를 해체하고 단순화하여 본질적인 기하학적 볼륨감으로 환원한 조형미',
-        brushworkAndTexture: '붓자국을 매끄럽게 문지르면서도 하부 캔버스의 고유한 직조 질감을 은근히 드러내는 얇고 섬세한 레이어링 기법',
-        lightAndShadow: '직접적인 광원을 배제하고 화면 내부에서부터 은은하게 배어 나오는 듯한 확산광(Diffused light)의 표현'
+        color: '울트라마린, 코발트 블루의 깊은 밤빛과 찬란한 크롬 옐로우의 별빛이 극적인 보색 대비를 이룹니다.',
+        composition: '왼쪽 전경의 수직적 사이프러스 나무와 오른쪽으로 굽이치는 수평적 밤하늘이 완벽한 시각적 균형을 이룹니다.',
+        form: '자연의 실제 모습을 넘어서 소용돌이치는 리듬감과 왜곡된 타원형으로 단순화되었습니다.',
+        brushworkAndTexture: '물감을 두껍게 덧바른 임파스토(Impasto) 기법으로 붓의 속도감과 거친 생명력이 살아있습니다.',
+        lightAndShadow: '자연의 광원 대신 화가의 내면에서 뿜어져 나오는 초자연적이고 영적인 빛의 진동이 화면을 지배합니다.'
       },
       similarArtists: [
         {
-          name: '조르조 모란디 (Giorgio Morandi)',
-          artisticStyle: '이탈리아 정물화의 거장이자 형태의 극단적 단순화와 침묵의 미학을 탐구한 화가',
-          similarities: '차분한 흙빛 톤과 대상의 경계를 부드럽게 흐리는 회화적 호흡, 고요한 명상적 정서',
-          differences: '모란디가 일상의 병과 도자기에 천착한 반면, 본 작품은 공간성과 빛의 확산에 더 주안점을 둠',
-          keyWork: '정물 (Natura Morta, 1950s 시리즈)'
+          name: '에드바르 뭉크 (Edvard Munch)',
+          artisticStyle: '초기 표현주의 및 상징주의',
+          similarities: '물결치는 곡선과 왜곡된 공간을 통해 화가의 내면적 불안과 정서를 캔버스에 투영한 점',
+          differences: '고흐는 자연의 생명력과 영성을 찬미한 반면, 뭉크는 인간의 실존적 불안과 죽음에 집중',
+          keyWork: '절규 (The Scream, 1893)'
         },
         {
-          name: '에드워드 호퍼 (Edward Hopper)',
-          artisticStyle: '미국 사실주의의 대표 작가로, 빛과 고독의 공간을 포착한 현대의 거장',
-          similarities: '창을 통해 비스듬히 쏟아지는 명암의 날카로운 긴장감과 화면을 관통하는 현대인의 서정',
-          differences: '호퍼의 극적인 인물 서사와 차가운 리얼리즘에 비해 훨씬 더 부드럽고 추상화된 서정성을 띰',
-          keyWork: '햇빛 속의 사람들 (People in the Sun, 1960)'
+          name: '폴 고갱 (Paul Gauguin)',
+          artisticStyle: '종합주의 및 후기 인상주의',
+          similarities: '눈에 보이는 사실적 색채를 거부하고 화가의 감정과 상징을 담은 주관적 색채 사용',
+          differences: '고흐의 거칠고 역동적인 붓질과 달리 고갱은 평면적이고 장식적인 색면 구성을 추구',
+          keyWork: '설교 후의 환영 (Vision after the Sermon, 1888)'
         },
         {
-          name: '마크 로스코 (Mark Rothko)',
-          artisticStyle: '거대한 색면을 통해 인간의 근원적 감정과 숭고함을 이끌어낸 색면추상의 선구자',
-          similarities: '경계가 번져 나가는 색면의 부유감과 색채를 통한 감정의 진동',
-          differences: '완전한 비구상 거대 색면이 아닌, 현실의 공간적 지각을 여전히 유지하고 있는 점',
-          keyWork: 'White Center (Yellow, Pink and Lavender on Rose, 1950)'
+          name: '클로드 모네 (Claude Monet)',
+          artisticStyle: '인상주의 창시',
+          similarities: '빛의 변화와 대기의 움직임을 캔버스에 포착하려는 시각적 탐구',
+          differences: '모네가 객관적인 자연광의 변화를 포착했다면, 고흐는 주관적인 영혼의 파동을 그려냄',
+          keyWork: '수련 (Water Lilies, 1916)'
         }
       ],
       interpretation: {
-        symbolsAndThemes: '비워냄으로써 비로소 채워지는 공간의 미학과, 분주한 현대의 소음 너머에 존재하는 내면의 안식',
-        multiplePerspectives: '한 편으로는 고립과 쓸쓸함의 표상으로 읽힐 수도 있으나, 다른 시각에서는 자아를 온전히 마주할 수 있는 가장 평화로운 치유의 공간으로 해석될 수 있습니다.'
+        symbolsAndThemes: '하늘과 땅을 잇는 사이프러스 나무는 영원과 슬픔을 상징하며, 밤하늘의 11개 별과 달은 고독 속에서도 꺼지지 않는 희망과 예술혼을 의미합니다.',
+        multiplePerspectives: '정신적 고통 속의 발작적 환각이라는 해석과, 당시 천문학 관측과 성경적 상징이 결합된 고도로 계산된 예술적 성취라는 상반된 해석이 공존합니다.'
       },
       authorIntentVsAiPerspective: {
         hasAuthorNote: true,
-        authorIntent: '일상의 번잡함을 잊고 빛이 머무는 찰나의 침묵을 관람객과 함께 호흡하고자 함',
-        aiObservation: '빛의 방향성과 여백의 비율이 치밀하게 계산되어 관람자의 호흡을 차분하게 가라앉히는 시각적 구조를 형성함',
-        comparativeAnalysis: '작가가 의도한 침묵의 미학이 화면의 절제된 색채와 붓질의 톤 다운을 통해 시각적으로 완벽하게 일치하며 구현되어 있습니다.'
+        authorIntent: '"지도에서 도시나 마을을 가리키는 검은 점을 보면 꿈을 꾸게 되는 것처럼, 별이 총총한 밤하늘을 볼 때마다 나는 늘 꿈을 꾼다."',
+        aiObservation: '캔버스 전체에 집요하게 반복된 짧고 굽이치는 붓터치는 단순한 감정의 폭발이 아니라 화면 전체를 하나로 엮는 놀라운 조형적 일관성을 보여줍니다.',
+        comparativeAnalysis: '작가가 동생 테오에게 보낸 편지에서 언급한 고요한 밤의 묵상과 달리, 시각적으로 완성된 화면은 거대한 코스모스의 생명력이 요동치는 극적 긴장감을 품고 있습니다.'
       },
       appreciationGuide: {
         focusPoints: [
-          '가장 밝은 면과 어두운 면이 만나는 경계선에서 물감이 어떻게 부드럽게 번져 있는지 살펴보세요.',
-          '한 걸음 물러나 캔버스 전체의 여백이 주는 무게 중심의 균형감을 느껴보세요.'
+          '하늘 한가운데를 가로지르는 은하수 같은 소용돌이의 붓터치 방향',
+          '작은 마을의 고요한 첨탑과 대비되는 전면 사이프러스 나무의 거대한 어둠'
         ],
         reflectiveQuestions: [
-          '이 작품이 뿜어내는 빛은 당신에게 따뜻한 위로로 다가오나요, 아니면 서늘한 고독으로 느껴지나요?',
-          '당신만의 방에서 이 그림과 같은 침묵을 마주했던 순간이 있었나요?'
+          '화가는 왜 칠흑 같은 밤을 어둠이 아닌 눈부신 노란빛과 푸른빛의 교향곡으로 그렸을까요?',
+          '당신에게 가장 깊은 위안을 주는 밤하늘의 색채는 어떤 모습인가요?'
         ]
       }
     };
